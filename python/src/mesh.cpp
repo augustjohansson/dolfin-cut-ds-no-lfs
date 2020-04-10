@@ -601,7 +601,9 @@ namespace dolfin_wrappers
       .def("quadrature_rules_interface",
 	   static_cast<const std::vector<dolfin::MultiMesh::quadrature_rule>(dolfin::MultiMesh::*)(std::size_t, unsigned int) const>(&dolfin::MultiMesh::quadrature_rules_interface))
       .def("quadrature_rules_cut_cells",
-	   static_cast<const dolfin::MultiMesh::quadrature_rule(dolfin::MultiMesh::*)(std::size_t, unsigned int) const>(&dolfin::MultiMesh::quadrature_rules_cut_cells));
+	   static_cast<const dolfin::MultiMesh::quadrature_rule(dolfin::MultiMesh::*)(std::size_t, unsigned int) const>(&dolfin::MultiMesh::quadrature_rules_cut_cells))
+      .def("quadrature_rules_exterior_cut_facets",
+	   static_cast<const dolfin::MultiMesh::quadrature_rule(dolfin::MultiMesh::*)(std::size_t, unsigned int) const>(&dolfin::MultiMesh::quadrature_rules_exterior_cut_facets));
   }
 
 
