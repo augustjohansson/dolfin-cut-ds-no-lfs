@@ -66,13 +66,16 @@ namespace dolfin
     void _assemble_cut_cells(GenericTensor& A, const MultiMeshForm& a);
 
     // Assemble over uncut exterior facets
-    void _assemble_uncut_exterior_facets(GenericTensor& A, const MultiMeshForm& a);
+    void _assemble_non_covered_exterior_facets(GenericTensor& A, const MultiMeshForm& a);
 
     // Assemble over interface
     void _assemble_interface(GenericTensor& A, const MultiMeshForm& a);
 
     // Assemble over overlap
     void _assemble_overlap(GenericTensor& A, const MultiMeshForm& a);
+
+    // Assemble over exterior cut facets
+    void _assemble_cut_exterior_facets(GenericTensor& A, const MultiMeshForm& a);
 
     // Initialize global tensor
     void _init_global_tensor(GenericTensor& A, const MultiMeshForm& a);

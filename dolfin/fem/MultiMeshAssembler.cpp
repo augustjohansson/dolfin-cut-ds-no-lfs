@@ -64,7 +64,7 @@ void MultiMeshAssembler::assemble(GenericTensor& A, const MultiMeshForm& a)
   _assemble_uncut_cells(A, a);
 
   // Assemble over exterior facets
-  _assemble_uncut_exterior_facets(A, a);
+  _assemble_non_covered_exterior_facets(A, a);
 
   // Assemble over cut cells
   _assemble_cut_cells(A, a);
@@ -75,6 +75,9 @@ void MultiMeshAssembler::assemble(GenericTensor& A, const MultiMeshForm& a)
   // Assemble over overlap
   _assemble_overlap(A, a);
 
+  // Assemble over exterior facets
+  _assemble_cut_exterior_facets(A, a);
+
   // Finalize assembly of global tensor
   if (finalize_tensor)
     A.apply("add");
@@ -82,12 +85,9 @@ void MultiMeshAssembler::assemble(GenericTensor& A, const MultiMeshForm& a)
   end();
 }
 //-----------------------------------------------------------------------------
-void MultiMeshAssembler::_assemble_uncut_exterior_facets(GenericTensor& A,
+void MultiMeshAssembler::_assemble_non_covered_exterior_facets(GenericTensor& A,
                                                          const MultiMeshForm& a)
 {
-  // FIXME: This implementation assumes that there is one background mesh
-  // that contains the entire exterior facet. 
-
   // Get form rank
   const std::size_t form_rank = a.rank();
 
@@ -106,10 +106,20 @@ void MultiMeshAssembler::_assemble_uncut_exterior_facets(GenericTensor& A,
   ufc::cell ufc_cell;
   std::vector<double> coordinate_dofs;
 
-  // Assembly exterior uncut facets on mesh 0, the background mesh
-  int part = 0;
+  // Find covered cells
+  std::vector<std::vector<bool>> is_covered(a.num_parts());
+  for (std::size_t part = 0; part < a.num_parts(); ++part)
+  {
+    is_covered[part].assign(multimesh->part(part)->num_cells(), false);
+    for (unsigned int c : multimesh->covered_cells(part))
+      is_covered[part][c] = true;
+  }
 
-  log(PROGRESS, "Assembling multimesh form over uncut facets on part %d.", part);
+  // Iterate over parts
+  for (std::size_t part = 0; part < a.num_parts(); ++part)
+  {
+    // Assembly exterior non-covered facets on part
+    log(PROGRESS, "Assembling multimesh form over non-covered facets on part %d.", part);
 
   // Get form for current part
   const Form& a_part = *a.part(part);
@@ -144,7 +154,13 @@ void MultiMeshAssembler::_assemble_uncut_exterior_facets(GenericTensor& A,
     // Get mesh cell to which mesh facet belongs (pick first, there is
     // only one)
     dolfin_assert(facet->num_entities(D) == 1);
-    Cell mesh_cell(mesh_part, facet->entities(D)[0]);
+
+      // Cell should not be covered
+      const std::size_t cell_index = facet->entities(D)[0];
+      if (is_covered[part][cell_index])
+        continue;
+      
+      Cell mesh_cell(mesh_part, cell_index);
 
     // Check that cell is not a ghost
     dolfin_assert(!mesh_cell.is_ghost());
@@ -177,6 +193,7 @@ void MultiMeshAssembler::_assemble_uncut_exterior_facets(GenericTensor& A,
 
     // Add entries to global tensor
     A.add(ufc_part.A.data(), dofs);
+    }
   }
 }
 //-----------------------------------------------------------------------------
@@ -758,6 +775,121 @@ void MultiMeshAssembler::_assemble_overlap(GenericTensor& A,
         // Add entries to global tensor
         A.add(ufc_part.macro_A.data(), macro_dof_ptrs);
       }
+    }
+  }
+}
+//-----------------------------------------------------------------------------
+void MultiMeshAssembler::_assemble_cut_exterior_facets(GenericTensor& A,
+                                                       const MultiMeshForm& a)
+{
+  // Get form rank
+  const std::size_t form_rank = a.rank();
+
+  // Extract multimesh
+  std::shared_ptr<const MultiMesh> multimesh = a.multimesh();
+
+  // Collect pointers to dof maps
+  std::vector<const MultiMeshDofMap*> dofmaps;
+  for (std::size_t i = 0; i < form_rank; i++)
+    dofmaps.push_back(a.function_space(i)->dofmap().get());
+
+  // Vector to hold dof map for a cell
+  std::vector<ArrayView<const dolfin::la_index>> dofs(form_rank);
+
+  // Initialize variables that will be reused throughout assembly
+  ufc::cell ufc_cell;
+  std::vector<double> coordinate_dofs;
+
+  // Iterate over parts
+  for (std::size_t part = 0; part < a.num_parts(); part++)
+  {
+    log(PROGRESS, "Assembling multimesh form over cut cells on part %d.", part);
+
+    // Get form for current part
+    const Form& a_part = *a.part(part);
+
+    // Create data structure for local assembly data
+    UFC ufc_part(a_part);
+
+    // Extract mesh
+    dolfin_assert(a_part.mesh());
+    const Mesh& mesh_part = *(a_part.mesh());
+
+    // FIXME: Handle subdomains
+
+    // Get integral
+    ufc::exterior_cut_facet_integral* integral = ufc_part.default_exterior_cut_facet_integral.get();
+    
+    // Skip if we don't have an integral
+    if (!integral) continue;
+
+    // Get cut cells and quadrature rules
+    const auto& quadrature_rules = multimesh->quadrature_rules_exterior_cut_facets(part);
+    
+    // Iterate over cells whos exterior facets are cut
+    for (const auto& qrmap : quadrature_rules)
+    {
+      // Create cell
+      Cell cell(mesh_part, qrmap.first);
+
+      // Update to current cell
+      cell.get_cell_data(ufc_cell);
+      cell.get_coordinate_dofs(coordinate_dofs);
+      ufc_part.update(cell, coordinate_dofs, ufc_cell);
+
+      // Get local-to-global dof maps for cell
+      for (std::size_t i = 0; i < form_rank; ++i)
+      {
+        const auto dofmap = a.function_space(i)->dofmap()->part(part);
+        auto dmap = dofmap->cell_dofs(cell.index());
+        dofs[i].set(dmap.size(), dmap.data());
+      }
+
+      // Get quadrature rule for cut cell
+      const auto& qr = qrmap.second; //quadrature_rules.at(*it);
+
+      // Skip if there are no quadrature points
+      std::size_t num_quadrature_points = qr.second.size();
+      if (num_quadrature_points == 0)
+        continue;
+
+      // FIXME: Handle this inside the quadrature point generation,
+      // FIXME: perhaps by storing three different sets of points,
+      // FIXME: including cut cell, overlap and the whole cell.
+
+      // Include only quadrature points with positive weight if
+      // integration should be extended on cut cells
+      std::pair<std::vector<double>, std::vector<double>> pr;
+      if (extend_cut_cell_integration)
+      {
+        const std::size_t gdim = mesh_part.geometry().dim();
+        for (std::size_t i = 0; i < num_quadrature_points; i++)
+        {
+          if (qr.second[i] > 0.0)
+          {
+            pr.second.push_back(qr.second[i]);
+            for (std::size_t j = i*gdim; j < (i + 1)*gdim; j++)
+              pr.first.push_back(qr.first[j]);
+          }
+        }
+        num_quadrature_points = pr.second.size();
+      }
+      else
+      {
+        pr = qr;
+      }
+
+      // Tabulate cell tensor
+      integral->tabulate_tensor(ufc_part.A.data(),
+                                ufc_part.w(),
+                                coordinate_dofs.data(),
+                                num_quadrature_points,
+                                pr.first.data(),
+                                pr.second.data(),
+                                ufc_cell.orientation);
+
+      // Add entries to global tensor
+      A.add(ufc_part.A.data(), dofs);
     }
   }
 }
