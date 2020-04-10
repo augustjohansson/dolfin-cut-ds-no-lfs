@@ -151,6 +151,11 @@ namespace dolfin
     // proper fallback to default)
     std::vector<std::shared_ptr<ufc::overlap_integral>> overlap_integrals;
 
+    // Exterior cut facet integrals (access through
+    // get_exterior_cut_facet_integral to get proper fallback to
+    // default)
+    std::vector<std::shared_ptr<ufc::exterior_cut_facet_integral>> exterior_cut_facet_integrals;
+    
   public:
 
     // Default cell integral
@@ -181,6 +186,10 @@ namespace dolfin
     // Default overlap integral
     std::shared_ptr<ufc::overlap_integral> default_overlap_integral;
 
+    // Default exterior cut facet integral
+    std::shared_ptr<ufc::exterior_cut_facet_integral> default_exterior_cut_facet_integral;
+
+    
     /// Get cell integral over a given domain, falling back to the
     /// default if necessary
     ufc::cell_integral*
