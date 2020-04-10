@@ -86,7 +86,7 @@ void MultiMeshAssembler::assemble(GenericTensor& A, const MultiMeshForm& a)
 }
 //-----------------------------------------------------------------------------
 void MultiMeshAssembler::_assemble_non_covered_exterior_facets(GenericTensor& A,
-                                                         const MultiMeshForm& a)
+                                                               const MultiMeshForm& a)
 {
   // Get form rank
   const std::size_t form_rank = a.rank();
@@ -121,39 +121,39 @@ void MultiMeshAssembler::_assemble_non_covered_exterior_facets(GenericTensor& A,
     // Assembly exterior non-covered facets on part
     log(PROGRESS, "Assembling multimesh form over non-covered facets on part %d.", part);
 
-  // Get form for current part
-  const Form& a_part = *a.part(part);
+    // Get form for current part
+    const Form& a_part = *a.part(part);
 
-  // Create data structure for local assembly data
-  UFC ufc_part(a_part);
+    // Create data structure for local assembly data
+    UFC ufc_part(a_part);
 
-  // Extract mesh
-  dolfin_assert(a_part.mesh());
-  const Mesh& mesh_part = *(a_part.mesh());
+    // Extract mesh
+    dolfin_assert(a_part.mesh());
+    const Mesh& mesh_part = *(a_part.mesh());
 
-  // FIXME: Handle subdomains
+    // FIXME: Handle subdomains
 
-  // Exterior facet integral
-  const ufc::exterior_facet_integral* integral = ufc_part.default_exterior_facet_integral.get();
+    // Exterior facet integral
+    const ufc::exterior_facet_integral* integral = ufc_part.default_exterior_facet_integral.get();
 
-  // Skip if we don't have a facet integral
-  if (!integral) return;
+    // Skip if we don't have a facet integral
+    if (!integral) return;
 
-  // Iterate over uncut cells
-  for (FacetIterator facet(mesh_part); !facet.end(); ++facet)
-  {
-
-    // Only consider exterior facets
-    if (!facet->exterior())
+    // Iterate over uncut cells
+    for (FacetIterator facet(mesh_part); !facet.end(); ++facet)
     {
-      continue;
-    }
 
-    const std::size_t D = mesh_part.topology().dim();
+      // Only consider exterior facets
+      if (!facet->exterior())
+      {
+        continue;
+      }
 
-    // Get mesh cell to which mesh facet belongs (pick first, there is
-    // only one)
-    dolfin_assert(facet->num_entities(D) == 1);
+      const std::size_t D = mesh_part.topology().dim();
+
+      // Get mesh cell to which mesh facet belongs (pick first, there is
+      // only one)
+      dolfin_assert(facet->num_entities(D) == 1);
 
       // Cell should not be covered
       const std::size_t cell_index = facet->entities(D)[0];
@@ -162,37 +162,37 @@ void MultiMeshAssembler::_assemble_non_covered_exterior_facets(GenericTensor& A,
       
       Cell mesh_cell(mesh_part, cell_index);
 
-    // Check that cell is not a ghost
-    dolfin_assert(!mesh_cell.is_ghost());
+      // Check that cell is not a ghost
+      dolfin_assert(!mesh_cell.is_ghost());
 
-    // Get local index of facet with respect to the cell
-    const std::size_t local_facet = mesh_cell.index(*facet);
+      // Get local index of facet with respect to the cell
+      const std::size_t local_facet = mesh_cell.index(*facet);
 
-    // Update UFC cell
-    mesh_cell.get_cell_data(ufc_cell, local_facet);
-    mesh_cell.get_coordinate_dofs(coordinate_dofs);
+      // Update UFC cell
+      mesh_cell.get_cell_data(ufc_cell, local_facet);
+      mesh_cell.get_coordinate_dofs(coordinate_dofs);
 
-    // Update UFC object
-    ufc_part.update(mesh_cell, coordinate_dofs, ufc_cell,
-               integral->enabled_coefficients());
+      // Update UFC object
+      ufc_part.update(mesh_cell, coordinate_dofs, ufc_cell,
+                      integral->enabled_coefficients());
 
-    // Get local-to-global dof maps for cell
-    for (std::size_t i = 0; i < form_rank; ++i)
-    {
-      const auto dofmap = a.function_space(i)->dofmap()->part(part);
-      const auto dmap = dofmap->cell_dofs(mesh_cell.index());
-      dofs[i] = ArrayView<const dolfin::la_index>(dmap.size(), dmap.data());
-    }
+      // Get local-to-global dof maps for cell
+      for (std::size_t i = 0; i < form_rank; ++i)
+      {
+        const auto dofmap = a.function_space(i)->dofmap()->part(part);
+        const auto dmap = dofmap->cell_dofs(mesh_cell.index());
+        dofs[i] = ArrayView<const dolfin::la_index>(dmap.size(), dmap.data());
+      }
 
-    // Tabulate cell tensor
-    integral->tabulate_tensor(ufc_part.A.data(),
-                              ufc_part.w(),
-                              coordinate_dofs.data(),
-                              local_facet,
-                              ufc_cell.orientation);
+      // Tabulate cell tensor
+      integral->tabulate_tensor(ufc_part.A.data(),
+                                ufc_part.w(),
+                                coordinate_dofs.data(),
+                                local_facet,
+                                ufc_cell.orientation);
 
-    // Add entries to global tensor
-    A.add(ufc_part.A.data(), dofs);
+      // Add entries to global tensor
+      A.add(ufc_part.A.data(), dofs);
     }
   }
 }
