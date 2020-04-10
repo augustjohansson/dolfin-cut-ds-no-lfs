@@ -220,7 +220,6 @@ void PETScMatrix::init(const TensorLayout& tensor_layout)
 //-----------------------------------------------------------------------------
 bool PETScMatrix::is_nest()
 {
-  PetscErrorCode ierr;
   PetscBool nest;
   PetscObjectTypeCompare((PetscObject)_matA, MATNEST, &nest);
   return (bool)nest;
