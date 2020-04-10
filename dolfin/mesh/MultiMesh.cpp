@@ -225,6 +225,22 @@ MultiMesh::quadrature_rules_interface(std::size_t part,
   return q[cell_index];
 }
 //-----------------------------------------------------------------------------
+const std::map<unsigned int, MultiMesh::quadrature_rule> &
+MultiMesh::quadrature_rules_exterior_cut_facets(std::size_t part) const
+{
+  dolfin_assert(part < num_parts());
+  return _quadrature_rules_exterior_cut_facets[part];
+}
+//-----------------------------------------------------------------------------
+const MultiMesh::quadrature_rule
+MultiMesh::quadrature_rules_exterior_cut_facets(std::size_t part,
+                                                unsigned int cell_index) const
+{
+  auto q = quadrature_rules_exterior_cut_facets(part);
+  dolfin_assert(cell_index < this->part(part)->num_cells());
+  return q[cell_index];
+}
+//-----------------------------------------------------------------------------
 const std::map<unsigned int, std::vector<std::vector<double>>>&
 MultiMesh::facet_normals(std::size_t part) const
 {
@@ -280,6 +296,9 @@ void MultiMesh::build(std::size_t quadrature_order)
   // Build quadrature rules and normals of the interface
   _build_quadrature_rules_interface(quadrature_order);
 
+  // Build quadrature rules of exterior cut facets after interface qr
+  _build_quadrature_rules_exterior_cut_facets(quadrature_order);
+
   // Make sure that cut cells are actually cut
   // TODO: Check if this needed
   // TODO: Maybe also keep track of interface cells
@@ -302,6 +321,7 @@ void MultiMesh::clear()
   _quadrature_rules_cut_cells.clear();
   _quadrature_rules_overlap.clear();
   _quadrature_rules_interface.clear();
+  _quadrature_rules_exterior_cut_facets.clear();
 }
 //-----------------------------------------------------------------------------
 double MultiMesh::compute_area() const
@@ -1110,6 +1130,141 @@ void MultiMesh::_build_quadrature_rules_interface(std::size_t quadrature_order)
     } // end loop over cut_i
   } // end loop over parts
 
+  end();
+}
+//------------------------------------------------------------------------------
+void MultiMesh::_build_quadrature_rules_exterior_cut_facets(std::size_t quadrature_order)
+{
+  // FIXME Make sure this is run after interface qr
+
+  // Clear and resize
+  _quadrature_rules_exterior_cut_facets.clear();
+  _quadrature_rules_exterior_cut_facets.resize(num_parts());
+
+  // First determine the overlap parts and their qr with negative sign.
+  // Then add the qrs from the interface with flipped sign.
+  
+  // Iterate over all parts
+  for (std::size_t cut_part = 0; cut_part < num_parts(); cut_part++)
+  {
+    // Construct quadrature rules on reference simplex
+    const std::size_t tdim = _meshes[cut_part]->topology().dim();
+    const std::size_t gdim = _meshes[cut_part]->geometry().dim();
+    const SimplexQuadrature sq(tdim-1, quadrature_order);
+
+    // Interface quadrature rule
+    const auto& qr_interfaces = quadrature_rules_interface(cut_part);
+    
+    // Iterate over cut cells for current part
+    for (const auto& c : collision_map_cut_cells(cut_part))
+    {
+      // Get cut cell
+      const unsigned int cut_cell_index = c.first;
+      const Cell cut_cell(*(_meshes[cut_part]), cut_cell_index);
+
+      // Get the exterior facets that are cut
+      std::vector<Facet> cut_cell_facets;
+      for (FacetIterator f(cut_cell); !f.end(); ++f)
+      {
+        // Facet is exterior if it's connected to one cell (there's also Facet::exterior() and the FacetCell class)
+        const bool global_exterior_facet = (f->num_global_entities(tdim) == 1);
+        if (global_exterior_facet)
+        {
+          const Facet facet(*_meshes[cut_part], f->index());
+          cut_cell_facets.push_back(facet);
+        }
+      }
+      
+      // Data structure for the first intersections (this is the first
+      // stage in the inclusion exclusion principle). These are the
+      // polyhedra to be used in the exlusion inclusion.
+      std::vector<std::pair<std::size_t, Polyhedron>> initial_polyhedra;
+      
+      // Get the cutting cells
+      const std::vector<std::pair<std::size_t, unsigned int>>& cutting_cells = c.second;
+
+      // Data structure for the overlap quadrature rule
+      std::vector<quadrature_rule> overlap_qr(cutting_cells.size());
+
+      // Loop over all cutting cells to construct the polyhedra to be
+      // used in the inclusion-exclusion principle
+      for (const std::pair<std::size_t, unsigned int> cutting : cutting_cells)
+      {
+	// Get cutting part and cutting cell
+        const std::size_t cutting_part = cutting.first;
+        const std::size_t cutting_cell_index = cutting.second;
+        const Cell cutting_cell(*(_meshes[cutting_part]), cutting_cell_index);
+
+        // Only allow same type of cell for now
+      	dolfin_assert(cutting_cell.mesh().topology().dim() == tdim);
+      	dolfin_assert(cutting_cell.mesh().geometry().dim() == gdim);
+       
+        // Compute the intersection of the cut cell exterior facets (if any)
+        std::vector<std::vector<Point>> facet_triangulation;
+        for (const Facet& facet : cut_cell_facets)
+        {
+          const std::vector<Point> intersection
+            = IntersectionConstruction::intersection(facet, cutting_cell);
+          const std::vector<std::vector<Point>> triangulation
+            = ConvexTriangulation::triangulate(intersection, gdim, tdim-1);
+          for (const std::vector<Point>& t : triangulation)
+            facet_triangulation.push_back(t);
+        }
+        const Polyhedron polyhedron(facet_triangulation, {cutting_part});
+        
+	// This can be empty
+        initial_polyhedra.emplace_back(initial_polyhedra.size(),
+                                       polyhedron);
+      }
+
+      if (cutting_cells.size() > 0)
+      {
+        _inclusion_exclusion_overlap(overlap_qr, sq, initial_polyhedra,
+                                     tdim-1, gdim, quadrature_order);
+      }
+
+      // Sum up
+      if (overlap_qr.size() > 0)
+      {
+        quadrature_rule qr = overlap_qr[0];
+        for (std::size_t i = 1; i < overlap_qr.size(); ++i)
+          _add_quadrature_rule(qr, overlap_qr[i], gdim, 1);
+      
+        // Remove any near-trival quadrature rules
+        // TODO: The tolerance here appears to work ok in 2D with few meshes
+        // TODO: It might not be accurate in 3D or a large number of meshes
+
+        //const double tolerance = DOLFIN_EPS * cut_cell.volume();
+        //for (std::size_t i = 0; i < overlap_qr.size(); i++)
+        //	remove_quadrature_rule(overlap_qr[i], tolerance);
+
+        if (parameters["compress_volume_quadrature"])
+        {
+          SimplexQuadrature::compress(qr, gdim, quadrature_order);
+        }
+
+        // Flip sign of weights
+        for (double& w : qr.second)
+          w *= -1.0;
+
+        // Iterate over cutting cells for interface contribution
+        for (std::size_t k = 0; k < cutting_cells.size(); ++k)
+        {
+          // Get quadrature rule for interface part defined by
+          // intersection of the cut and cutting cells
+          const auto& qr_interface = qr_interfaces.at(cut_cell_index)[k];
+
+          // Add up with flipped sign
+          _add_quadrature_rule(qr, qr_interface, gdim, -1);
+        }
+        
+        // Store final quadrature rule for cut cell
+        _quadrature_rules_exterior_cut_facets[cut_part][cut_cell_index] = qr;
+      }
+
+    }
+  }
+    
   end();
 }
 //------------------------------------------------------------------------------

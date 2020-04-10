@@ -294,6 +294,13 @@ namespace dolfin
     quadrature_rules_interface(std::size_t part,
 			       unsigned int cell_index) const;
 
+    /// Exterior cut facets quadrature rules
+    const std::map<unsigned int, MultiMesh::quadrature_rule> &
+    quadrature_rules_exterior_cut_facets(std::size_t part) const;
+  
+    const MultiMesh::quadrature_rule
+    quadrature_rules_exterior_cut_facets(std::size_t part,
+                                         unsigned int cell_index) const;
 
     /// Return facet normals for the interface on the given part
     ///
@@ -494,6 +501,11 @@ namespace dolfin
     std::vector<std::map<unsigned int, std::vector<quadrature_rule> > >
     _quadrature_rules_interface;
 
+    // Quadrature rules for exterior cut facets
+    std::vector<std::map<unsigned int, quadrature_rule> >
+    _quadrature_rules_exterior_cut_facets;
+
+
     // Facet normals for interface. Access data by
     //
     //     n = _facet_normals_interface[i][j][k][
@@ -527,6 +539,9 @@ namespace dolfin
 
     // Build quadrature rules and normals for the interface
     void _build_quadrature_rules_interface(std::size_t quadrature_order);
+    
+    // Build quadrature rules for the exterior cut facets
+    void _build_quadrature_rules_exterior_cut_facets(std::size_t quadrature_order);
 
     // Help function to determine if interface intersection is
     // (exactly) overlapped by a cutting cell
