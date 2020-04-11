@@ -329,38 +329,56 @@ double MultiMesh::compute_area() const
   // Total area
   double area = 0.0;
 
+  // Find covered cells
+  std::vector<std::vector<bool>> is_covered(num_parts());
+  for (std::size_t p = 0; p < num_parts(); ++p)
+  {
+    is_covered[p].assign(part(p)->num_cells(), false);
+    for (unsigned int c : covered_cells(p))
+      is_covered[p][c] = true;
+  }
+
   // Compute contribution from all parts
   for (std::size_t p = 0; p < num_parts(); p++)
   {
-    // Get the quadrature rules
-    const auto& quadrature_rules = quadrature_rules_interface(p);
+    const std::size_t tdim = part(p)->topology().dim();
 
-    // Get the collision map
-    const auto& cmap = collision_map_cut_cells(p);
-
-    for (auto it = cmap.begin(); it != cmap.end(); ++it)
+    // Sum area contribution from non-covered cells
+    for (std::size_t i = 0; i < part(p)->num_cells(); ++i)
     {
-      // Get the cells that intersect the cut cell. These are the
-      // cutting cells
-      const unsigned int cut_cell_index = it->first;
-      const auto& cutting_cells = it->second;
-
-      // Iterate over cutting cells
-      for (auto jt = cutting_cells.begin(); jt != cutting_cells.end(); jt++)
+      if (!is_covered[p][i])
       {
-	// Get the quadrature rule for the interface part defined by
-	// the intersection of the cut and cutting cell
-	const std::size_t k = jt - cutting_cells.begin();
-	dolfin_assert(k < quadrature_rules.at(cut_cell_index).size());
-	const auto& qr = quadrature_rules.at(cut_cell_index)[k];
-
-	// Sum over all qr weights
-	for (std::size_t i = 0; i < qr.second.size(); ++i)
-	{
-	  area += qr.second[i];
-	}
+        const Cell cell(*part(p), i);
+        for (FacetIterator f(cell); !f.end(); ++f)
+        {
+          // Facet is exterior if it's connected to one cell
+          const bool global_exterior_facet = (f->num_global_entities(tdim) == 1);
+          if (global_exterior_facet)
+          {
+            // FIXME
+            const MeshGeometry& geometry = part(p)->geometry();
+            dolfin_assert(geometry.dim() == 2);
+            const Facet facet(*part(p), f->index());
+            const std::size_t v0 = facet.entities(0)[0];
+            const std::size_t v1 = facet.entities(0)[1];
+            const Point p0 = geometry.point(v0);
+            const Point p1 = geometry.point(v1);
+            area += p1.distance(p0);
+          }
+        }
       }
     }
+
+    // Sum area contributions from qr
+    const auto& quadrature_rules = quadrature_rules_exterior_cut_facets(p);
+
+    // Iterate over cells whos exterior facets are cut
+    for (const auto& qrmap : quadrature_rules)
+    {
+      const auto& qr = qrmap.second;
+      for (double w : qr.second) 
+        area += w;
+    } 
   }
 
   return area;
