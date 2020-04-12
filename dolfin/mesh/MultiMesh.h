@@ -320,8 +320,12 @@ namespace dolfin
     ///         which should be equal to the number of quadrature
     ///         points multiplied by the geometric dimension. Puh!
     const std::map<unsigned int, std::vector<std::vector<double> > >&
-    facet_normals(std::size_t part) const;
+    facet_normals_interface(std::size_t part) const;
 
+    const std::map<unsigned int, std::vector<std::vector<double> > >&
+    facet_normals_exterior_cut_facets(std::size_t part) const;
+
+    
     /// Return the bounding box tree for the mesh of the given part
     ///
     /// *Arguments*
@@ -502,13 +506,13 @@ namespace dolfin
     _quadrature_rules_interface;
 
     // Quadrature rules for exterior cut facets
-    std::vector<std::map<unsigned int, quadrature_rule> >
+    std::vector<std::map<unsigned int, quadrature_rule>>
     _quadrature_rules_exterior_cut_facets;
 
 
     // Facet normals for interface. Access data by
     //
-    //     n = _facet_normals_interface[i][j][k][
+    //     n = _facet_normals_interface[i][j][k]
     //
     // where
     //
@@ -518,8 +522,12 @@ namespace dolfin
     //     j = the cell number (local cell index)
     //     k = the collision number (in the list of cutting cells)
     std::vector<std::map<unsigned int, std::vector<std::vector<double> > > >
-    _facet_normals;
+    _facet_normals_interface;
 
+    // Facet normals for cut exterior facets (numbering matches _quadrature_rules_exterior_cut_facets)
+    std::vector<std::map<unsigned int, std::vector<std::vector<double>>>> _facet_normals_exterior_cut_facets;
+
+    
     // Build boundary meshes
     void _build_boundary_meshes();
 
@@ -581,7 +589,9 @@ namespace dolfin
        const std::vector<std::pair<std::size_t, Polyhedron> >& initial_polyhedra,
        std::size_t tdim,
        std::size_t gdim,
-       std::size_t quadrature_order) const;
+       std::size_t quadrature_order,
+       const std::vector<std::vector<Point>>* const initial_polyhedra_normals=0,
+       std::vector<Point>* normals=0) const;
 
     // Inclusion-exclusion for interface
     void _inclusion_exclusion_interface
