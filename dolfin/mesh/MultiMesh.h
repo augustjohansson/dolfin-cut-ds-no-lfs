@@ -322,7 +322,7 @@ namespace dolfin
     const std::map<unsigned int, std::vector<std::vector<double> > >&
     facet_normals_interface(std::size_t part) const;
 
-    const std::map<unsigned int, std::vector<std::vector<double> > >&
+    const std::map<unsigned int, std::vector<double>>&
     facet_normals_exterior_cut_facets(std::size_t part) const;
 
     
@@ -525,7 +525,7 @@ namespace dolfin
     _facet_normals_interface;
 
     // Facet normals for cut exterior facets (numbering matches _quadrature_rules_exterior_cut_facets)
-    std::vector<std::map<unsigned int, std::vector<std::vector<double>>>> _facet_normals_exterior_cut_facets;
+    std::vector<std::map<unsigned int, std::vector<double>>> _facet_normals_exterior_cut_facets;
 
     
     // Build boundary meshes

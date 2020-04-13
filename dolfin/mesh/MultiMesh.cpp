@@ -250,7 +250,7 @@ MultiMesh::facet_normals_interface(std::size_t part) const
   return _facet_normals_interface[part];
 }
 //-----------------------------------------------------------------------------
-const std::map<unsigned int, std::vector<std::vector<double>>>&
+const std::map<unsigned int, std::vector<double>>&
 MultiMesh::facet_normals_exterior_cut_facets(std::size_t part) const
 {
   dolfin_assert(part < num_parts());
@@ -1183,8 +1183,10 @@ void MultiMesh::_build_quadrature_rules_exterior_cut_facets(std::size_t quadratu
     const std::size_t gdim = _meshes[cut_part]->geometry().dim();
     const SimplexQuadrature sq(tdim-1, quadrature_order);
 
-    // Get quadrature rules of all interfaces (to be copied below)
+    // Get quadrature rules and normals of all interfaces (to be
+    // copied below)
     const auto& qr_interfaces = quadrature_rules_interface(cut_part);
+    const auto& normals_interfaces = facet_normals_interface(cut_part);
  
     // Iterate over cut cells for current part
     for (const auto& c : collision_map_cut_cells(cut_part))
@@ -1234,31 +1236,46 @@ void MultiMesh::_build_quadrature_rules_exterior_cut_facets(std::size_t quadratu
 
         // Compute the intersection as triangulated facets
         std::vector<std::vector<Point>> facet_triangulation;
+        std::vector<Point> facet_normals;
         for (const Facet& facet : cut_cell_facets)
         {
+          // Triangulation
           const std::vector<Point> intersection
             = IntersectionConstruction::intersection(facet, cutting_cell);
           const std::vector<std::vector<Point>> triangulation
             = ConvexTriangulation::triangulate(intersection, gdim, tdim-1);
           for (const std::vector<Point>& t : triangulation)
             facet_triangulation.push_back(t);
+
+          // Normal
+          const std::size_t local_facet_index = cut_cell.index(facet);
+          facet_normals.push_back(cut_cell.normal(local_facet_index));
         }
         const Polyhedron polyhedron(facet_triangulation, {cutting_part});
-
+        
         // Note that this can be empty
 	initial_polyhedra.emplace_back(initial_polyhedra.size(),
 				       polyhedron);
 
-        // Part 2: Copy the contribution from the interface quadrature
-        // rules (since we're already in the loop over cutting cells)
+        // Copy the contribution from the interface (since we're
+        // already in the loop over cutting cells)
         const std::size_t k = std::distance(cutting_cells.begin(), cutting);
         dolfin_assert(k < qr_interfaces.at(cut_cell_index).size());
         const auto& qr_interface = qr_interfaces.at(cut_cell_index)[k];
-
-        // Append to the quadrature rules for the cutting cell
+        const auto& normal_interface = normals_interfaces.at(cut_cell_index)[k];
+        
+        // Append quadrature rules to the cutting cell
         _add_quadrature_rule
           (_quadrature_rules_exterior_cut_facets[cutting_part][cutting_cell_index],
-           qr_interface, gdim, -1);        
+           qr_interface, gdim, -1);
+
+        // Append normals to the cutting cell
+        // FIXME check orientation
+        _facet_normals_exterior_cut_facets[cutting_part][cutting_cell_index].insert(_facet_normals_exterior_cut_facets[cutting_part][cutting_cell_index].end(), normal_interface.begin(), normal_interface.end());
+
+        dolfin_assert(_facet_normals_exterior_cut_facets[cutting_part][cutting_cell_index].size() == _quadrature_rules_exterior_cut_facets[cutting_part][cutting_cell_index].first.size());
+        
+        
       }
 
       if (cutting_cells.size() > 0)
@@ -1283,9 +1300,15 @@ void MultiMesh::_build_quadrature_rules_exterior_cut_facets(std::size_t quadratu
           (_quadrature_rules_exterior_cut_facets[cut_part][cut_cell_index], 
            overlap_qr_flat, gdim, -1);
       }
-    } 
+    }
   }
 
+  
+
+  // tools::plot_normals_interface(*this);
+  // PPause;
+  // tools::plot_normals_exterior(*this);
+  // PPause;
 
 
   // for (std::size_t p = 0; p < num_parts(); ++p)
@@ -1482,12 +1505,7 @@ void MultiMesh::_build_quadrature_rules_exterior_cut_facets(std::size_t quadratu
     
 
 
-  
-  // tools::plot_normals_interface(*this);
-  // PPause;
-  // tools::plot_normals_exterior(*this);
-  // PPause;
-  end();
+    end();
 }
 //------------------------------------------------------------------------------
 bool
@@ -1557,7 +1575,6 @@ std::size_t MultiMesh::_add_quadrature_rule(quadrature_rule& qr,
                                             double factor) const
 {
   // Get the number of points
-  std::cout << __FUNCTION__<<' '<<dqr.first.size()<<' '<<dqr.second.size() << std::endl;
   dolfin_assert(dqr.first.size() == gdim*dqr.second.size());
   const std::size_t num_points = dqr.second.size();
 
