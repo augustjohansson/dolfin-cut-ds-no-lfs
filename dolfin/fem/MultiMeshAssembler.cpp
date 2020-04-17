@@ -39,6 +39,8 @@
 #include "MultiMeshDofMap.h"
 #include "MultiMeshAssembler.h"
 
+#include "dolfin_simplex_tools.h"
+
 using namespace dolfin;
 
 //-----------------------------------------------------------------------------
@@ -111,8 +113,8 @@ void MultiMeshAssembler::_assemble_non_covered_exterior_facets(GenericTensor& A,
   for (std::size_t part = 0; part < a.num_parts(); ++part)
   {
     is_covered[part].assign(multimesh->part(part)->num_cells(), false);
-    for (unsigned int c : multimesh->covered_cells(part))
-      is_covered[part][c] = true;
+    // for (unsigned int c : multimesh->covered_cells(part))
+    //   is_covered[part][c] = true;
   }
 
   // Iterate over parts
@@ -459,7 +461,7 @@ void MultiMeshAssembler::_assemble_interface(GenericTensor& A,
     const auto& cmap = multimesh->collision_map_cut_cells(part);
 
     // Get facet normals
-    const auto& facet_normals = multimesh->facet_normals(part);
+    const auto& facet_normals_interface = multimesh->facet_normals_interface(part);
 
     // Iterate over all cut cells in collision map
     for (auto it = cmap.begin(); it != cmap.end(); ++it)
@@ -563,7 +565,7 @@ void MultiMeshAssembler::_assemble_interface(GenericTensor& A,
         }
 
         // Get facet normals
-        const auto& n = facet_normals.at(cut_cell_index)[k];
+        const auto& n = facet_normals_interface.at(cut_cell_index)[k];
 
         // FIXME: We would like to use this assertion (but it fails
         // for 2 meshes)
@@ -825,12 +827,17 @@ void MultiMeshAssembler::_assemble_cut_exterior_facets(GenericTensor& A,
 
     // Get cut cells and quadrature rules
     const auto& quadrature_rules = multimesh->quadrature_rules_exterior_cut_facets(part);
+
+    // Get facet normals
+    const auto& facet_normals = multimesh->facet_normals_exterior_cut_facets(part);
     
-    // Iterate over cells whos exterior facets are cut
-    for (const auto& qrmap : quadrature_rules)
-    {
+    
+    // Iterate over cells whose exterior facets are cut    
+    for (auto it = quadrature_rules.begin(); it != quadrature_rules.end(); ++it)
+    { 
       // Create cell
-      Cell cell(mesh_part, qrmap.first);
+      const std::size_t cell_index = it->first;
+      Cell cell(mesh_part, cell_index);
 
       // Update to current cell
       cell.get_cell_data(ufc_cell);
@@ -846,46 +853,34 @@ void MultiMeshAssembler::_assemble_cut_exterior_facets(GenericTensor& A,
       }
 
       // Get quadrature rule for cut cell
-      const auto& qr = qrmap.second; //quadrature_rules.at(*it);
-
+      const auto& qr = it->second;
+      //tools::cout_qr(qr); PPause;
+      
+      // // Get normal
+      // const std::size_t k = std::distance(quadrature_rules.begin(), it);
+      // dolfin_assert(k < facet_normals.at(cell_index).size());
+      // const auto& normals = facet_normals.at(cell_index)[k];
+      // std::vector<double> normals(1000,0.0);
+      const auto& normals = facet_normals.at(cell_index);
+      
       // Skip if there are no quadrature points
       std::size_t num_quadrature_points = qr.second.size();
       if (num_quadrature_points == 0)
         continue;
 
-      // FIXME: Handle this inside the quadrature point generation,
-      // FIXME: perhaps by storing three different sets of points,
-      // FIXME: including cut cell, overlap and the whole cell.
-
-      // Include only quadrature points with positive weight if
-      // integration should be extended on cut cells
-      std::pair<std::vector<double>, std::vector<double>> pr;
-      if (extend_cut_cell_integration)
-      {
-        const std::size_t gdim = mesh_part.geometry().dim();
-        for (std::size_t i = 0; i < num_quadrature_points; i++)
-        {
-          if (qr.second[i] > 0.0)
-          {
-            pr.second.push_back(qr.second[i]);
-            for (std::size_t j = i*gdim; j < (i + 1)*gdim; j++)
-              pr.first.push_back(qr.first[j]);
-          }
-        }
-        num_quadrature_points = pr.second.size();
-      }
-      else
-      {
-        pr = qr;
-      }
-
+      // std::cout << tools::drawtriangle(cell)<<"% "<<part<<' '<<cell_index<<'\n';
+      // tools::cout_qr(qr);
+      // tools::cout_normals(normals);PPause;
+      
+      
       // Tabulate cell tensor
       integral->tabulate_tensor(ufc_part.A.data(),
                                 ufc_part.w(),
                                 coordinate_dofs.data(),
                                 num_quadrature_points,
-                                pr.first.data(),
-                                pr.second.data(),
+                                qr.first.data(),
+                                qr.second.data(),
+                                normals.data(),
                                 ufc_cell.orientation);
 
       // Add entries to global tensor

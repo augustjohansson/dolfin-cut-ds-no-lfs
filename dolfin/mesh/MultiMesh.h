@@ -50,7 +50,7 @@ namespace dolfin
   class MultiMesh : public Variable
   {
   public:
-
+    
     /// Structure storing a quadrature rule
     typedef std::pair<std::vector<double>, std::vector<double> > quadrature_rule;
 
@@ -399,11 +399,26 @@ namespace dolfin
     /// point inside the hole is known.
     void auto_cover(std::size_t p, const Point& point);
 
+
+    // Build boundary meshes
+    void _build_boundary_meshes();
+
+    // Build bounding box trees
+    void _build_bounding_box_trees();
+
+    // Build collision maps
+    void _build_collision_maps();
+    //void _build_collision_maps_same_topology();
+    //void _build_collision_maps_different_topology();
+
+    // Build quadrature rules and normals for the interface
+    void _build_quadrature_rules_interface(std::size_t quadrature_order);
+   
   private:
 
     // Flag for whether multimesh has been built
     bool _is_built;
-
+    
     // List of meshes
     std::vector<std::shared_ptr<const Mesh> > _meshes;
 
@@ -528,25 +543,12 @@ namespace dolfin
     std::vector<std::map<unsigned int, std::vector<double>>> _facet_normals_exterior_cut_facets;
 
     
-    // Build boundary meshes
-    void _build_boundary_meshes();
-
-    // Build bounding box trees
-    void _build_bounding_box_trees();
-
-    // Build collision maps
-    void _build_collision_maps();
-    //void _build_collision_maps_same_topology();
-    //void _build_collision_maps_different_topology();
 
     // Build quadrature rules for the cut cells
     void _build_quadrature_rules_cut_cells(std::size_t quadrature_order);
 
     // Build quadrature rules for the overlap
     void _build_quadrature_rules_overlap(std::size_t quadrature_order);
-
-    // Build quadrature rules and normals for the interface
-    void _build_quadrature_rules_interface(std::size_t quadrature_order);
     
     // Build quadrature rules for the exterior cut facets
     void _build_quadrature_rules_exterior_cut_facets(std::size_t quadrature_order);
