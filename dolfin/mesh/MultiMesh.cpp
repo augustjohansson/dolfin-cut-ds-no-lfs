@@ -284,13 +284,13 @@ void MultiMesh::build(std::size_t quadrature_order)
   
   // Build boundary meshes
   _build_boundary_meshes();
-
+  
   // Build bounding box trees
   _build_bounding_box_trees();
-
+  
   // Build collision maps, i.e. classify cut, uncut and covered cells
   _build_collision_maps();
-
+  
   // For collisions with meshes of same type we get three types of
   // quadrature rules: the cut cell qr, qr of the overlap part and qr
   // of the interface.
@@ -298,16 +298,16 @@ void MultiMesh::build(std::size_t quadrature_order)
   // Build quadrature rules of the cut cells' overlap. Do this before
   // we build the quadrature rules of the cut cells
   _build_quadrature_rules_overlap(quadrature_order);
-
+  
   // Build quadrature rules of the cut cells
   _build_quadrature_rules_cut_cells(quadrature_order);
-
+  
   // Build quadrature rules and normals of the interface
   _build_quadrature_rules_interface(quadrature_order);
-
+  
   // Build quadrature rules and normals for the exterior facets
   _build_quadrature_rules_exterior_cut_facets(quadrature_order);
-
+  
   // Make sure that cut cells are actually cut
   // TODO: Check if this needed
   // TODO: Maybe also keep track of interface cells
@@ -315,7 +315,7 @@ void MultiMesh::build(std::size_t quadrature_order)
 
   // Mark space as built
   _is_built = true;
-
+  
   end();
 }
 //-----------------------------------------------------------------------------
@@ -1204,11 +1204,13 @@ void MultiMesh::_build_quadrature_rules_exterior_cut_facets(std::size_t quadratu
     // FIXME set number of elements smarter
     const std::size_t N = static_cast<std::size_t>(std::round(std::max<std::size_t>(1, std::pow(part(0)->num_cells(), 1.0/gdim))));
     
-    // // Make the multimesh fit in one mm_ext element
-    // aext = Point(-4,-1);
-    // bext = aext + Point(6,6);
+    // // Make the multimesh fit in one mm_ext element (much slower)
+    // const Point L = b-a;
+    // dolfin_assert(gdim == 2);
+    // const Point aext(a[0]-3*L[0], a[1]-L[1]/3);
+    // const Point bext(b[0]+L[0]/3, b[1]+3*L[1]);
     // const std::size_t N = 1;
-    
+
     // Constuct extended multimesh
     auto mm_ext = std::make_shared<MultiMesh>();
     if (gdim == 2)
@@ -1226,7 +1228,9 @@ void MultiMesh::_build_quadrature_rules_exterior_cut_facets(std::size_t quadratu
       mm_ext->_build_boundary_meshes();
       mm_ext->_build_bounding_box_trees();
       mm_ext->_build_collision_maps();
+      //Timer timer; timer.start();
       mm_ext->_build_quadrature_rules_interface(quadrature_order);
+      //std::cout << "timer " << timer.stop() << std::endl;
     }
 
     // Get mm_ext data

@@ -66,7 +66,7 @@ void MultiMeshAssembler::assemble(GenericTensor& A, const MultiMeshForm& a)
   _assemble_uncut_cells(A, a);
 
   // Assemble over exterior facets
-  _assemble_non_covered_exterior_facets(A, a);
+  _assemble_exterior_facets(A, a);
 
   // Assemble over cut cells
   _assemble_cut_cells(A, a);
@@ -87,8 +87,8 @@ void MultiMeshAssembler::assemble(GenericTensor& A, const MultiMeshForm& a)
   end();
 }
 //-----------------------------------------------------------------------------
-void MultiMeshAssembler::_assemble_non_covered_exterior_facets(GenericTensor& A,
-                                                               const MultiMeshForm& a)
+void MultiMeshAssembler::_assemble_exterior_facets(GenericTensor& A,
+                                                   const MultiMeshForm& a)
 {
   // Get form rank
   const std::size_t form_rank = a.rank();
@@ -108,20 +108,11 @@ void MultiMeshAssembler::_assemble_non_covered_exterior_facets(GenericTensor& A,
   ufc::cell ufc_cell;
   std::vector<double> coordinate_dofs;
 
-  // Find covered cells
-  std::vector<std::vector<bool>> is_covered(a.num_parts());
-  for (std::size_t part = 0; part < a.num_parts(); ++part)
-  {
-    is_covered[part].assign(multimesh->part(part)->num_cells(), false);
-    // for (unsigned int c : multimesh->covered_cells(part))
-    //   is_covered[part][c] = true;
-  }
-
   // Iterate over parts
   for (std::size_t part = 0; part < a.num_parts(); ++part)
   {
-    // Assembly exterior non-covered facets on part
-    log(PROGRESS, "Assembling multimesh form over non-covered facets on part %d.", part);
+    // Assembly exterior facets on part
+    log(PROGRESS, "Assembling multimesh form over exterior facets on part %d.", part);
 
     // Get form for current part
     const Form& a_part = *a.part(part);
@@ -156,13 +147,7 @@ void MultiMeshAssembler::_assemble_non_covered_exterior_facets(GenericTensor& A,
       // Get mesh cell to which mesh facet belongs (pick first, there is
       // only one)
       dolfin_assert(facet->num_entities(D) == 1);
-
-      // Cell should not be covered
-      const std::size_t cell_index = facet->entities(D)[0];
-      if (is_covered[part][cell_index])
-        continue;
-      
-      Cell mesh_cell(mesh_part, cell_index);
+      Cell mesh_cell(mesh_part, facet->entities(D)[0]);
 
       // Check that cell is not a ghost
       dolfin_assert(!mesh_cell.is_ghost());
@@ -856,11 +841,7 @@ void MultiMeshAssembler::_assemble_cut_exterior_facets(GenericTensor& A,
       const auto& qr = it->second;
       //tools::cout_qr(qr); PPause;
       
-      // // Get normal
-      // const std::size_t k = std::distance(quadrature_rules.begin(), it);
-      // dolfin_assert(k < facet_normals.at(cell_index).size());
-      // const auto& normals = facet_normals.at(cell_index)[k];
-      // std::vector<double> normals(1000,0.0);
+      // Get normal
       const auto& normals = facet_normals.at(cell_index);
       
       // Skip if there are no quadrature points
@@ -870,7 +851,8 @@ void MultiMeshAssembler::_assemble_cut_exterior_facets(GenericTensor& A,
 
       // std::cout << tools::drawtriangle(cell)<<"% "<<part<<' '<<cell_index<<'\n';
       // tools::cout_qr(qr);
-      // tools::cout_normals(normals);PPause;
+      // // tools::cout_normals(normals);
+      // //PPause;
       
       
       // Tabulate cell tensor
