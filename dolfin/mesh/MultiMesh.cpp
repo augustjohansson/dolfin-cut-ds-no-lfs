@@ -309,7 +309,7 @@ void MultiMesh::build(std::size_t quadrature_order)
   _build_quadrature_rules_exterior_cut_facets(quadrature_order);
 
   // Find faces where we need to apply ghost stab
-  _build_ghost_penalty_faces();
+  // _build_ghost_penalty_faces();
   
   // Make sure that cut cells are actually cut
   // TODO: Check if this needed
@@ -318,7 +318,7 @@ void MultiMesh::build(std::size_t quadrature_order)
 
   // Mark space as built
   _is_built = true;
-  
+
   end();
 }
 //-----------------------------------------------------------------------------
@@ -1299,16 +1299,18 @@ void MultiMesh::_build_ghost_penalty_faces()
   {
     const auto mesh = part(p);
     
-    // Find all cells close to the boundary, i.e, having a cell facet
+    // Find all cut cells close to the boundary, i.e, having a cell facet
     // that is exterior.
     std::vector<bool> cells_to_include(mesh->num_cells(), false);
-    for (CellIterator cell(*mesh); !cell.end(); ++cell)
+
+    for (const auto& cell_index: cut_cells(p))
     {
-      for (FacetIterator facet(*cell); !facet.end(); ++facet)
+      const Cell cell(*mesh, cell_index);
+      for (FacetIterator facet(cell); !facet.end(); ++facet)
       {
         if (facet->exterior())
         {
-          cells_to_include[cell->index()] = true;
+          cells_to_include[cell_index] = true;
         }
       }
     }
