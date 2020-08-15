@@ -80,6 +80,9 @@ void MultiMeshAssembler::assemble(GenericTensor& A, const MultiMeshForm& a)
   // Assemble over exterior facets
   _assemble_cut_exterior_facets(A, a);
 
+  // Assemble over custom internal faces (ghost penalty faces)
+  _assemble_ghost_penalty_faces(A, a);
+  
   // Finalize assembly of global tensor
   if (finalize_tensor)
     A.apply("add");
@@ -790,7 +793,7 @@ void MultiMeshAssembler::_assemble_cut_exterior_facets(GenericTensor& A,
   // Iterate over parts
   for (std::size_t part = 0; part < a.num_parts(); part++)
   {
-    log(PROGRESS, "Assembling multimesh form over cut cells on part %d.", part);
+    log(PROGRESS, "Assembling multimesh form over cut exterior facets on part %d.", part);
 
     // Get form for current part
     const Form& a_part = *a.part(part);
@@ -816,7 +819,6 @@ void MultiMeshAssembler::_assemble_cut_exterior_facets(GenericTensor& A,
     // Get facet normals
     const auto& facet_normals = multimesh->facet_normals_exterior_cut_facets(part);
     
-    
     // Iterate over cells whose exterior facets are cut    
     for (auto it = quadrature_rules.begin(); it != quadrature_rules.end(); ++it)
     { 
@@ -839,7 +841,6 @@ void MultiMeshAssembler::_assemble_cut_exterior_facets(GenericTensor& A,
 
       // Get quadrature rule for cut cell
       const auto& qr = it->second;
-      //tools::cout_qr(qr); PPause;
       
       // Get normal
       const auto& normals = facet_normals.at(cell_index);
@@ -849,12 +850,6 @@ void MultiMeshAssembler::_assemble_cut_exterior_facets(GenericTensor& A,
       if (num_quadrature_points == 0)
         continue;
 
-      // std::cout << tools::drawtriangle(cell)<<"% "<<part<<' '<<cell_index<<'\n';
-      // tools::cout_qr(qr);
-      // // tools::cout_normals(normals);
-      // //PPause;
-      
-      
       // Tabulate cell tensor
       integral->tabulate_tensor(ufc_part.A.data(),
                                 ufc_part.w(),
@@ -870,6 +865,130 @@ void MultiMeshAssembler::_assemble_cut_exterior_facets(GenericTensor& A,
     }
   }
 }
+
+//-----------------------------------------------------------------------------
+void MultiMeshAssembler::_assemble_ghost_penalty_faces(GenericTensor& A,
+                                                       const MultiMeshForm& a)
+{
+  // Assemble over all ghost penalty faces on each part
+  // (cf. assemble_interior_facets).
+  // NB: we cannot have any other interior facet integrals
+
+  // Get form rank
+  const std::size_t form_rank = a.rank();
+
+  // Extract multimesh
+  std::shared_ptr<const MultiMesh> multimesh = a.multimesh();
+
+  // Collect pointers to dof maps
+  std::vector<const MultiMeshDofMap*> dofmaps;
+  for (std::size_t i = 0; i < form_rank; i++)
+    dofmaps.push_back(a.function_space(i)->dofmap().get());
+
+  // Vector to hold dof map for a cell
+  std::vector<ArrayView<const dolfin::la_index>> dofs(form_rank);
+
+  // Iterate over parts
+  for (std::size_t part = 0; part < a.num_parts(); part++)
+  {
+    log(PROGRESS, "Assembling multimesh form ghost penalty faces on part %d.", part);
+
+    // Get form for current part
+    const Form& a_part = *a.part(part);
+
+    // Create data structure for local assembly data
+    UFC ufc(a_part);
+
+    // Extract mesh
+    dolfin_assert(a_part.mesh());
+    const Mesh& mesh = *(a_part.mesh());
+    const std::size_t D = mesh.topology().dim();
+
+    // FIXME: Handle subdomains
+
+    // Vector to hold dofs for cells, and a vector holding pointers to same
+    std::vector<std::vector<dolfin::la_index>> macro_dofs(form_rank);
+    std::vector<ArrayView<const dolfin::la_index>> macro_dof_ptrs(form_rank);
+    
+    // Get integral
+    ufc::interior_facet_integral* integral = ufc.default_interior_facet_integral.get();
+
+    // Skip if we don't have an integral
+    if (!integral) continue;
+
+    // // Collect pointers to dof maps
+    // std::vector<const GenericDofMap*> dofmaps;
+    // for (std::size_t i = 0; i < form_rank; ++i)
+    //   dofmaps.push_back(a.function_space(i)->dofmap().get());
+
+    // Get the relevant facets
+    //const std::vector<FacetIterator>& facets = multimesh.ghost_penalty_facets(p);
+    const std::vector<std::size_t> facets;
+    
+    for (const std::size_t fi : facets)
+    {
+      const Facet facet(mesh, fi);
+      
+      // Facet is shared by pair of cells
+      ufc::cell ufc_cell[2];
+      std::vector<double> coordinate_dofs[2];
+      std::size_t cell_index_plus = facet.entities(D)[0];
+      std::size_t cell_index_minus = facet.entities(D)[1];
+
+      // The convention '+' = 0, '-' = 1 is from ffc
+      const Cell cell0(mesh, cell_index_plus);
+      const Cell cell1(mesh, cell_index_minus);
+
+      // Get local index of facet with respect to each cell
+      std::size_t local_facet0 = cell0.index(facet);
+      std::size_t local_facet1 = cell1.index(facet);
+
+      // Update to current pair of cells
+      cell0.get_cell_data(ufc_cell[0], local_facet0);
+      cell0.get_coordinate_dofs(coordinate_dofs[0]);
+      cell1.get_cell_data(ufc_cell[1], local_facet1);
+      cell1.get_coordinate_dofs(coordinate_dofs[1]);
+
+      ufc.update(cell0, coordinate_dofs[0], ufc_cell[0],
+                 cell1, coordinate_dofs[1], ufc_cell[1],
+                 integral->enabled_coefficients());
+
+      // Tabulate dofs for each dimension on macro element
+      for (std::size_t i = 0; i < form_rank; i++)
+      {
+        // Get dofs for each cell
+        const auto dofmap = a.function_space(i)->dofmap()->part(part);
+        const auto cell_dofs0 = dofmap->cell_dofs(cell0.index());
+        const auto cell_dofs1 = dofmap->cell_dofs(cell1.index());
+
+        // Create space in macro dof vector
+        macro_dofs[i].resize(cell_dofs0.size() + cell_dofs1.size());
+
+        // Copy cell dofs into macro dof vector
+        std::copy(cell_dofs0.data(), cell_dofs0.data() + cell_dofs0.size(),
+                  macro_dofs[i].begin());
+        std::copy(cell_dofs1.data(), cell_dofs1.data() + cell_dofs1.size(),
+                  macro_dofs[i].begin() + cell_dofs0.size());
+        macro_dof_ptrs[i].set(macro_dofs[i]);
+      }
+
+      // Tabulate interior facet tensor on macro element
+      integral->tabulate_tensor(ufc.macro_A.data(),
+                                ufc.macro_w(),
+                                coordinate_dofs[0].data(),
+                                coordinate_dofs[1].data(),
+                                local_facet0,
+                                local_facet1,
+                                ufc_cell[0].orientation,
+                                ufc_cell[1].orientation);
+
+      // Add entries to global tensor
+      A.add_local(ufc.macro_A.data(), macro_dof_ptrs);
+    }
+  }
+    
+}
+
 //-----------------------------------------------------------------------------
 void MultiMeshAssembler::_init_global_tensor(GenericTensor& A,
                                              const MultiMeshForm& a)

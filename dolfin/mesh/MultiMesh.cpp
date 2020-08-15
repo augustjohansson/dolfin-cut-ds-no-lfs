@@ -307,6 +307,9 @@ void MultiMesh::build(std::size_t quadrature_order)
   
   // Build quadrature rules and normals for the exterior facets
   _build_quadrature_rules_exterior_cut_facets(quadrature_order);
+
+  // Find faces where we need to apply ghost stab
+  _build_ghost_stabilization_faces();
   
   // Make sure that cut cells are actually cut
   // TODO: Check if this needed
@@ -1163,7 +1166,7 @@ void MultiMesh::_build_quadrature_rules_interface(std::size_t quadrature_order)
 //------------------------------------------------------------------------------
 void MultiMesh::_build_quadrature_rules_exterior_cut_facets(std::size_t quadrature_order)
 {
-  {    
+  {  
     // Copy qr and normals from mm_ext to *this
 
     // Clear and resize
@@ -1270,380 +1273,25 @@ void MultiMesh::_build_quadrature_rules_exterior_cut_facets(std::size_t quadratu
         // Save flipped normals to *this
         for (double& n_i : n)
           n_i *= -1;
-        _facet_normals_exterior_cut_facets[cutting_part-1][cutting_cell_index].insert(_facet_normals_exterior_cut_facets[cutting_part-1][cutting_cell_index].end(), n.begin(), n.end());
 
-        // // mm_ext cells
-        // const Cell mm_cut_cell(*mm_ext->part(0),cut_cell_index);
-        // const Cell mm_cutting_cell(*mm_ext->part(cutting_part),cutting_cell_index);
-        // std::cout << tools::drawtriangle(mm_cut_cell)<<tools::drawtriangle(mm_cutting_cell)<<std::endl;
-
-        // // *this cell
-        // const Cell cell(*part(0), cutting_cell_index);
-        // std::cout << tools::drawtriangle(cell)<<std::endl;
-
-        // tools::cout_qr(qr);
-        // tools::cout_normals(n);
-        // PPause;
+        _facet_normals_exterior_cut_facets[cutting_part-1][cutting_cell_index].insert
+          (_facet_normals_exterior_cut_facets[cutting_part-1][cutting_cell_index].end(),
+           n.begin(), n.end());
           
       }
     }
   }
 
-
-  
-  // // Part 1: Determine quadrature rules for the cut facets (really the
-  // // overlap) by constructing a quadrature rule for the overlap with
-  // // flipped sign. Save this at the cut cell.
-  
-  // // Part 2: Copy interface quadrature rules and save at the cutting
-  // // cell. Thus we should make sure that this function is run after
-  // // _build_quadrature_rules_exterior_cut_facets().
-
-  // // Clear and resize
-  // _quadrature_rules_exterior_cut_facets.clear();
-  // _quadrature_rules_exterior_cut_facets.resize(num_parts());
-  // _facet_normals_exterior_cut_facets.clear();
-  // _facet_normals_exterior_cut_facets.resize(num_parts());
-
-  // for (std::size_t cut_part = 0; cut_part < num_parts(); cut_part++)
-  // {
-  //   // Construct quadrature rules on reference simplex
-  //   const std::size_t tdim = _meshes[cut_part]->topology().dim();
-  //   const std::size_t gdim = _meshes[cut_part]->geometry().dim();
-  //   const SimplexQuadrature sq(tdim-1, quadrature_order);
-
-  //   // Get quadrature rules and normals of all interfaces (to be
-  //   // copied below)
-  //   const auto& qr_interfaces = quadrature_rules_interface(cut_part);
-  //   const auto& normals_interfaces = facet_normals_interface(cut_part);
- 
-  //   // Iterate over cut cells for current part
-  //   for (const auto& c : collision_map_cut_cells(cut_part))
-  //   {
-  //     // Get cut cell
-  //     const unsigned int cut_cell_index = c.first;
-  //     const Cell cut_cell(*(_meshes[cut_part]), cut_cell_index);
-
-  //     // Get the exterior facets that are cut
-  //     std::vector<Facet> cut_cell_facets;
-  //     for (FacetIterator f(cut_cell); !f.end(); ++f)
-  //     {
-  //       // Facet is exterior if it's connected to one cell (there's
-  //       // also Facet::exterior() and the FacetCell class)
-  //       const bool global_exterior_facet = (f->num_global_entities(tdim) == 1);
-  //       if (global_exterior_facet)
-  //       {
-  //         const Facet facet(*_meshes[cut_part], f->index());
-  //         cut_cell_facets.push_back(facet);
-  //       }
-  //     }
-      
-  //     // Get the cutting cells
-  //     const std::vector<std::pair<std::size_t, unsigned int>>& cutting_cells = c.second;
-
-  //     // Loop over all cutting cells
-  //     for (std::vector<std::pair<std::size_t, unsigned int>>::const_iterator
-  //            cutting = cutting_cells.begin();
-  //          cutting != cutting_cells.end(); ++cutting)
-  //     {
-  //       // Get cutting part and cutting cell
-  //       const std::size_t cutting_part = cutting->first;
-  //       const std::size_t cutting_cell_index = cutting->second;
-  //       const Cell cutting_cell(*(_meshes[cutting_part]), cutting_cell_index);
-  //       std::cout <<cut_part<<' '<<cut_cell_index<<"     "<<cutting_part<<' '<<cutting_cell_index<<'\n'
-  //                 <<"clf; hold on;\n"
-  //                 << tools::drawtriangle(cut_cell)<<tools::drawtriangle(cutting_cell)<<std::endl;
-        
-  //       // Only allow same type of cell for now
-  //     	dolfin_assert(cutting_cell.mesh().topology().dim() == tdim);
-  //     	dolfin_assert(cutting_cell.mesh().geometry().dim() == gdim);
-
-  //       // FIXME Do everything "per facet" to simplify saving normals
-  //       for (const Facet& facet : cut_cell_facets)
-  //       {
-  //         std::cout << "% facet "<<facet.index()<<std::endl;
-          
-  //         // Triangulation
-  //         const std::vector<Point> intersection
-  //           = IntersectionConstruction::intersection(facet, cutting_cell);
-  //         const std::vector<std::vector<Point>> triangulation
-  //           = ConvexTriangulation::triangulate(intersection, gdim, tdim-1);
-  //         std::vector<std::vector<Point>> facet_triangulation;
-  //         for (const std::vector<Point>& t : triangulation)
-  //           facet_triangulation.push_back(t);
-
-  //         // Inclusion-exclusion
-  //         std::vector<quadrature_rule> overlap_qr(1);
-
-  //         const Polyhedron polyhedron(facet_triangulation, {cutting_part});
-  //         std::vector<std::pair<std::size_t, Polyhedron>> initial_polyhedra;
-  //         initial_polyhedra.emplace_back(initial_polyhedra.size(),
-  //                                        polyhedron);
-  //         _inclusion_exclusion_overlap(overlap_qr, sq, initial_polyhedra,
-  //                                      tdim-1, gdim, quadrature_order);
- 
-  //         // Flatten
-  //         quadrature_rule overlap_qr_flat = overlap_qr[0];
-  //         for (std::size_t i = 1; i < overlap_qr.size(); ++i)
-  //           _add_quadrature_rule(overlap_qr_flat, overlap_qr[i], gdim, 1);
-
-  //         // if (parameters["compress_volume_quadrature"])
-  //         //   SimplexQuadrature::compress(overlap_qr_flat, gdim, quadrature_order);
-
-  //         // for (double& w: overlap_qr_flat.second)
-  //         //   w = 0.;
-        
-  //         // Append to the quadrature rules for cut cell with flipped sign
-  //         _add_quadrature_rule
-  //           (_quadrature_rules_exterior_cut_facets[cut_part][cut_cell_index], 
-  //            overlap_qr_flat, gdim, -1);// Must be -1
-
-  //         tools::cout_qr(overlap_qr_flat);
-          
-  //         // Normal
-  //         const std::size_t npts = overlap_qr[0].second.size();
-  //         const std::size_t local_facet_index = cut_cell.index(facet);
-  //         const Point normal = cut_cell.normal(local_facet_index);
-  //         _add_normal
-  //           (_facet_normals_exterior_cut_facets[cut_part][cut_cell_index],
-  //            normal, npts, gdim);
-  //       }
-
-  //       // Copy the contribution from the interface (since we're
-  //       // already in the loop over cutting cells)
-  //       const std::size_t k = std::distance(cutting_cells.begin(), cutting);
-  //       dolfin_assert(k < qr_interfaces.at(cut_cell_index).size());
-  //       //const auto& qr_interface = qr_interfaces.at(cut_cell_index)[k];
-  //       auto qr_interface = qr_interfaces.at(cut_cell_index)[k];
-  //       const auto& normal_interface = normals_interfaces.at(cut_cell_index)[k];
-
-  //       for (double& w: qr_interface.second)
-  //         w = 0.0;
-        
-  //       // Append quadrature rules to the cutting cell
-  //       _add_quadrature_rule
-  //         (_quadrature_rules_exterior_cut_facets[cutting_part][cutting_cell_index],
-  //          qr_interface, gdim, -1);
-
-  //       // Append normals to the cutting cell
-  //       // FIXME check orientation
-  //       _facet_normals_exterior_cut_facets[cutting_part][cutting_cell_index].insert(_facet_normals_exterior_cut_facets[cutting_part][cutting_cell_index].end(), normal_interface.begin(), normal_interface.end());
-
-  //       dolfin_assert(_facet_normals_exterior_cut_facets[cutting_part][cutting_cell_index].size() == _quadrature_rules_exterior_cut_facets[cutting_part][cutting_cell_index].first.size());
-        
-        
-  //     }
-
-  //     // std::cout <<"% cut qr"<<std::endl;
-  //     // tools::cout_qr(_quadrature_rules_exterior_cut_facets[cut_part][cut_cell_index]);
-  //     // std::cout <<"% cutting qr"<<std::endl;
-  //     // tools::cout_qr(_quadrature_rules_exterior_cut_facets[cutting_part][cutting_cell_index]);
-  //   }
-  // }
-
-  
-
-  // // tools::plot_normals_interface(*this);
-  // // PPause;
-  // // tools::plot_normals_exterior(*this);
-  // // PPause;
-
-
-  // // for (std::size_t p = 0; p < num_parts(); ++p)
-  // // {
-  // //   std::cout << p<<' '<<_facet_normals_interface[p].size() << "    ";
-  // //   for (const auto cmap : _facet_normals_interface[p])
-  // //     std::cout << cmap.first<<' ';
-  // //   std::cout << std::endl;
-  // // }
-    
-  // // // Clear and resize
-  // // _quadrature_rules_exterior_cut_facets.clear();
-  // // _quadrature_rules_exterior_cut_facets.resize(num_parts());
-  // // _facet_normals_exterior_cut_facets.clear();
-  // // _facet_normals_exterior_cut_facets.resize(num_parts());
-  
-  // // // First determine the overlap parts and their qr with negative sign.
-  // // // Then add the qrs from the interface with flipped sign.
-  
-  // // // Iterate over all parts
-  // // for (std::size_t cut_part = 0; cut_part < num_parts(); cut_part++)
-  // // {
-  // //   // Construct quadrature rules on reference simplex
-  // //   const std::size_t tdim = _meshes[cut_part]->topology().dim();
-  // //   const std::size_t gdim = _meshes[cut_part]->geometry().dim();
-  // //   const SimplexQuadrature sq(tdim-1, quadrature_order);
-
-  // //   // Interface quadrature rule and normals
-  // //   const auto& qr_interfaces = quadrature_rules_interface(cut_part);
-  // //   const auto& normals_interfaces = facet_normals_interface(cut_part);
-    
-  // //   // Iterate over cut cells for current part
-  // //   for (const auto& c : collision_map_cut_cells(cut_part))
-  // //   {
-  // //     // Get cut cell
-  // //     const unsigned int cut_cell_index = c.first;
-  // //     const Cell cut_cell(*(_meshes[cut_part]), cut_cell_index);
-
-  // //     // Get the exterior facets that are cut
-  // //     std::vector<Facet> cut_cell_facets;
-
-  // //     for (FacetIterator f(cut_cell); !f.end(); ++f)
-  // //     {
-  // //       // Facet is exterior if it's connected to one cell (there's also Facet::exterior() and the FacetCell class)
-  // //       const bool global_exterior_facet = (f->num_global_entities(tdim) == 1);
-  // //       if (global_exterior_facet)
-  // //       {
-  // //         const Facet facet(*_meshes[cut_part], f->index());
-  // //         cut_cell_facets.push_back(facet);
-  // //       }
-  // //     }
-      
-  // //     // Data structure for the first intersections (this is the first
-  // //     // stage in the inclusion exclusion principle). These are the
-  // //     // polyhedra to be used in the exlusion inclusion.
-  // //     // std::vector<std::pair<std::size_t, Polyhedron>> initial_polyhedra;
-  // //     // std::vector<std::vector<Point>> initial_polyhedra_normals;
-
-  // //     // Get the cutting cells
-  // //     const std::vector<std::pair<std::size_t, unsigned int>>& cutting_cells = c.second;
-
-  // //     // Data structure for the overlap quadrature rule
-  // //     std::vector<quadrature_rule> overlap_qr(cutting_cells.size());
-
-  // //     // Data structure for normals (matches overlap_qr)
-  // //     std::vector<std::vector<double>> overlap_normals(cutting_cells.size());
-      
-  // //     // Loop over all cutting cells to construct the polyhedra to be
-  // //     // used in the inclusion-exclusion principle
-  // //     //for (const std::pair<std::size_t, unsigned int> cutting : cutting_cells)
-  // //     for (std::vector<std::pair<std::size_t, unsigned int>>::const_iterator
-  // //            cutting = cutting_cells.begin();
-  // //          cutting != cutting_cells.end(); ++cutting)
-  // //     {
-  // //       // Get cutting part and cutting cell
-  // //       const std::size_t cutting_part = cutting->first;
-  // //       const std::size_t cutting_cell_index = cutting->second;
-  // //       const Cell cutting_cell(*(_meshes[cutting_part]), cutting_cell_index);
-
-  // //       // Local index
-  // //       const std::size_t local_cutting_idx = cutting - cutting_cells.begin();
-
-  // //       // Only allow same type of cell for now
-  // //     	dolfin_assert(cutting_cell.mesh().topology().dim() == tdim);
-  // //     	dolfin_assert(cutting_cell.mesh().geometry().dim() == gdim);
-       
-  // //       // Compute the intersection of the cut cell exterior facets (if any)
-  // //       // std::vector<std::vector<Point>> facet_triangulation;
-  // //       // std::vector<Point> facet_normals;
-
-  // //       // Do the inclusion exclusion once per facet to easily
-  // //       // guarantee correct normal
-  // //       for (const Facet& facet : cut_cell_facets)
-  // //       {
-  // //         const std::vector<Point> intersection
-  // //           = IntersectionConstruction::intersection(facet, cutting_cell);
-  // //         const std::vector<std::vector<Point>> triangulation
-  // //           = ConvexTriangulation::triangulate(intersection, gdim, tdim-1);
-  // //         std::vector<std::vector<Point>> facet_triangulation;
-  // //         for (const std::vector<Point>& t : triangulation)
-  // //           facet_triangulation.push_back(t);
-
-  // //         // Normal
-  // //         const std::size_t local_facet_index = cut_cell.index(facet);
-  // //         const Point normal = cut_cell.normal(local_facet_index);
-  // //         //facet_normals.push_back(cut_cell.normal(local_facet_index));
-
-  // //         // Inc-exc
-  // //         const Polyhedron polyhedron(facet_triangulation, {cutting_part});
-  // //         std::vector<std::pair<std::size_t, Polyhedron>> initial_polyhedra;//(1, polyhedron);
-  // //         initial_polyhedra.emplace_back(initial_polyhedra.size(), polyhedron);
-          
-  // //         const std::size_t num_pts = overlap_qr.size();
-  // //         _inclusion_exclusion_overlap(overlap_qr, sq, initial_polyhedra,
-  // //                                      tdim-1, gdim, quadrature_order);
-  // //         _add_normal(overlap_normals[local_cutting_idx], normal, overlap_qr.size()-num_pts, gdim);
-
-  // //       }
-        
-        
-  // //       // // This can be empty
-  // //       // initial_polyhedra.emplace_back(initial_polyhedra.size(),
-  // //       //                                polyhedron);
-  // //       // initial_polyhedra_normals.push_back(facet_normals);
-  // //     } // end cutting cells
-     
-  // //     // if (cutting_cells.size() > 0)
-  // //     // {
-  // //     //   // Test
-  // //     //   for (std::size_t i = 0; i < initial_polyhedra.size(); ++i)
-  // //     //   {
-  // //     //     const std::size_t num_pts = overlap_qr.size();
-  // //     //     const std::vector<std::pair<std::size_t, Polyhedron>> ip(1, initial_polyhedra[i]);
-  // //     //     _inclusion_exclusion_overlap(overlap_qr, sq, ip,
-  // //     //                                  tdim-1, gdim, quadrature_order);
-  // //     //     _add_normal(overlap_normals, initial_polyhedra_normals[i][0],
-  // //     //                 overlap_qr.size()-num_pts, gdim);
-  // //     //     dolfin_assert(overlap_qr.size() == overlap_normals.size());
-  // //     //   }
-  // //     //   // _inclusion_exclusion_overlap(overlap_qr, sq, initial_polyhedra,
-  // //     //   //                              tdim-1, gdim, quadrature_order);
-  // //     // }
-
-  // //     // Sum up
-  // //     if (overlap_qr.size() > 0)
-  // //     {
-  // //       quadrature_rule qr = overlap_qr[0];
-  // //       for (std::size_t i = 1; i < overlap_qr.size(); ++i)
-  // //         _add_quadrature_rule(qr, overlap_qr[i], gdim, 1);
-
-  // //       std::vector<std::vector<double>> normals = overlap_normals;
-        
-  // //       // Remove any near-trival quadrature rules
-  // //       // TODO: The tolerance here appears to work ok in 2D with few meshes
-  // //       // TODO: It might not be accurate in 3D or a large number of meshes
-
-  // //       //const double tolerance = DOLFIN_EPS * cut_cell.volume();
-  // //       //for (std::size_t i = 0; i < overlap_qr.size(); i++)
-  // //       //	remove_quadrature_rule(overlap_qr[i], tolerance);
-
-  // //       if (parameters["compress_volume_quadrature"])
-  // //       {
-  // //         SimplexQuadrature::compress(qr, gdim, quadrature_order);
-  // //       }
-
-  // //       // Flip sign of weights
-  // //       for (double& w : qr.second)
-  // //         w *= -1.0;
-
-  // //       // Iterate over cutting cells for interface contribution
-  // //       for (std::size_t k = 0; k < cutting_cells.size(); ++k)
-  // //       {
-  // //         // Get quadrature rule for interface part defined by
-  // //         // intersection of the cut and cutting cells
-  // //         const auto& qr_interface = qr_interfaces.at(cut_cell_index)[k];
-
-  // //         // Add up with flipped sign
-  // //         _add_quadrature_rule(qr, qr_interface, gdim, -1);
-
-  // //         // Pad normals
-  // //         const auto& normal_interface = normals_interfaces.at(cut_cell_index)[k];
-  // //         normals[k].insert(normals[k].end(), normal_interface.begin(), normal_interface.end());
-  // //       }
-        
-  // //       // Store final quadrature rule for cut cell
-  // //       _quadrature_rules_exterior_cut_facets[cut_part][cutting_cell_index] = qr;
-
-  // //       // Store normal
-  // //       _facet_normals_exterior_cut_facets[cut_part][cutting_cell_index] = normals;
-        
-  // //     }
-  // //   }
-  // // }
-    
-
-
     end();
+}
+//------------------------------------------------------------------------------
+void MultiMesh::_build_ghost_stabilization_faces()
+{
+  // Find the faces where we need to apply ghost stabilization. Save
+  // these in _ghost_penalty_faces.
+  std::cout << __FUNCTION__<<' '<<__LINE__<<std::endl;
+  char apa; std::cin >> apa; 
+  
 }
 //------------------------------------------------------------------------------
 bool
@@ -2202,5 +1850,10 @@ void MultiMesh::remove_quadrature_rule(quadrature_rule& qr,
     qr.first.clear();
     qr.second.clear();
   }
+}
+//-----------------------------------------------------------------------------
+std::vector<std::size_t> MultiMesh::ghost_penalty_faces(const std::size_t part) const
+{
+  return _ghost_penalty_faces[part];
 }
 //-----------------------------------------------------------------------------

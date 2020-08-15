@@ -77,6 +77,9 @@ namespace dolfin
     // Assemble over exterior cut facets
     void _assemble_cut_exterior_facets(GenericTensor& A, const MultiMeshForm& a);
 
+    // Assemble over custom internal faces (ghost penalty faces) 
+    void _assemble_ghost_penalty_faces(GenericTensor& A, const MultiMeshForm& a);
+
     // Initialize global tensor
     void _init_global_tensor(GenericTensor& A, const MultiMeshForm& a);
 

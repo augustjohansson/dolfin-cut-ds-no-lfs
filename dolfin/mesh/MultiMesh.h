@@ -400,20 +400,28 @@ namespace dolfin
     void auto_cover(std::size_t p, const Point& point);
 
 
-    // Build boundary meshes
+    // Build boundary meshes (now public)
     void _build_boundary_meshes();
 
-    // Build bounding box trees
+    // Build bounding box trees (now public)
     void _build_bounding_box_trees();
 
-    // Build collision maps
+    // Build collision maps (now public)
     void _build_collision_maps();
     //void _build_collision_maps_same_topology();
     //void _build_collision_maps_different_topology();
 
-    // Build quadrature rules and normals for the interface
+    // Build quadrature rules and normals for the interface (now public)
     void _build_quadrature_rules_interface(std::size_t quadrature_order);
-   
+
+
+    // Build the list of faces that need face stabilization (public)
+    void _build_ghost_stabilization_faces();
+    
+    // Get faces that need face stabilization on each part. Return
+    // structure must be useful for custom assembler.
+    std::vector<std::size_t> ghost_penalty_faces(const std::size_t part) const;
+    
   private:
 
     // Flag for whether multimesh has been built
@@ -541,6 +549,9 @@ namespace dolfin
 
     // Facet normals for cut exterior facets (numbering matches _quadrature_rules_exterior_cut_facets)
     std::vector<std::map<unsigned int, std::vector<double>>> _facet_normals_exterior_cut_facets;
+
+    // Faces where we need to apply ghost penalty
+    std::vector<std::vector<std::size_t>> _ghost_penalty_faces;
 
     
 
