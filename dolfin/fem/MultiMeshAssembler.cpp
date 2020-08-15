@@ -922,8 +922,7 @@ void MultiMeshAssembler::_assemble_ghost_penalty_faces(GenericTensor& A,
     //   dofmaps.push_back(a.function_space(i)->dofmap().get());
 
     // Get the relevant facets
-    //const std::vector<FacetIterator>& facets = multimesh.ghost_penalty_facets(p);
-    const std::vector<std::size_t> facets;
+    const std::vector<std::size_t>& facets = multimesh->ghost_penalty_faces(part);
     
     for (const std::size_t fi : facets)
     {

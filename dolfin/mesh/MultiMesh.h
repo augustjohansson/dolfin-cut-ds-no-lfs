@@ -414,10 +414,6 @@ namespace dolfin
     // Build quadrature rules and normals for the interface (now public)
     void _build_quadrature_rules_interface(std::size_t quadrature_order);
 
-
-    // Build the list of faces that need face stabilization (public)
-    void _build_ghost_stabilization_faces();
-    
     // Get faces that need face stabilization on each part. Return
     // structure must be useful for custom assembler.
     std::vector<std::size_t> ghost_penalty_faces(const std::size_t part) const;
@@ -564,6 +560,10 @@ namespace dolfin
     // Build quadrature rules for the exterior cut facets
     void _build_quadrature_rules_exterior_cut_facets(std::size_t quadrature_order);
 
+    // Build ghost penalty faces
+    void _build_ghost_penalty_faces();
+    
+    
     // Help function to determine if interface intersection is
     // (exactly) overlapped by a cutting cell
     bool _is_overlapped_interface(std::vector<Point> simplex,

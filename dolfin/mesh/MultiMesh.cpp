@@ -309,7 +309,7 @@ void MultiMesh::build(std::size_t quadrature_order)
   _build_quadrature_rules_exterior_cut_facets(quadrature_order);
 
   // Find faces where we need to apply ghost stab
-  _build_ghost_stabilization_faces();
+  _build_ghost_penalty_faces();
   
   // Make sure that cut cells are actually cut
   // TODO: Check if this needed
@@ -1285,13 +1285,38 @@ void MultiMesh::_build_quadrature_rules_exterior_cut_facets(std::size_t quadratu
     end();
 }
 //------------------------------------------------------------------------------
-void MultiMesh::_build_ghost_stabilization_faces()
+void MultiMesh::_build_ghost_penalty_faces()
 {
-  // Find the faces where we need to apply ghost stabilization. Save
-  // these in _ghost_penalty_faces.
-  std::cout << __FUNCTION__<<' '<<__LINE__<<std::endl;
-  char apa; std::cin >> apa; 
+  // Find the faces where we need to apply ghost
+  // stabilization. Ideally we would like to do this as
+  // dS(subdomain_data=some_faces) but this doesn't work for
+  // multimesh. Therefore use the custom assembly over the
+  // _ghost_penalty_faces.
   
+  _ghost_penalty_faces.resize(num_parts());
+
+  for (std::size_t p = 0; p < num_parts(); ++p)
+  {
+    const auto mesh = part(p);
+    
+    // Find all cells close to the boundary, i.e, having a cell facet
+    // that is exterior.
+    std::vector<bool> cells_to_include(mesh->num_cells(), false);
+    for (CellIterator cell(*mesh); !cell.end(); ++cell)
+    {
+      for (FacetIterator facet(*cell); !facet.end(); ++facet)
+      {
+        if (facet->exterior())
+        {
+          cells_to_include[cell->index()] = true;
+        }
+      }
+    }
+
+    for (std::size_t i = 0; i < mesh->num_cells(); ++i)
+      if (cells_to_include[i])
+        _ghost_penalty_faces[p].push_back(i);
+  }
 }
 //------------------------------------------------------------------------------
 bool
