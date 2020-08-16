@@ -309,8 +309,8 @@ void MultiMesh::build(std::size_t quadrature_order)
   _build_quadrature_rules_exterior_cut_facets(quadrature_order);
 
   // Find faces where we need to apply ghost stab
-  // _build_ghost_penalty_faces();
-  
+  _build_ghost_penalty_faces();
+
   // Make sure that cut cells are actually cut
   // TODO: Check if this needed
   // TODO: Maybe also keep track of interface cells
