@@ -630,6 +630,9 @@ namespace dolfin
     // tolerance
     static void remove_quadrature_rule(quadrature_rule& qr,
 				       double tolerance);
+
+    // Sort qr
+    static void sort_qr(std::vector<quadrature_rule>& qrs);
   };
 
 

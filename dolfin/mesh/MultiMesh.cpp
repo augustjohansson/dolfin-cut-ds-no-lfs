@@ -788,6 +788,49 @@ void MultiMesh::_build_collision_maps()
   end();
 }
 //-----------------------------------------------------------------------------
+void reorder(const std::vector<size_t>& idx_in, std::vector<double>& v, std::size_t d)  
+{   
+  assert(idx_in.size() == v.size());
+  std::vector<size_t> idx = idx_in;
+  
+  for (std::size_t i = 0; i < idx.size()-1; ++i)
+  {
+    while (i != idx[i])
+    {
+      // swap
+      const std::size_t i2 = idx[i];
+      for (std::size_t j = 0; j < d; ++j)
+        std::swap(v[d*i+j], v[d*i2+j]);
+      std::swap(idx[i], idx[i2]);
+    }
+  }
+}
+
+void MultiMesh::sort_qr(std::vector<quadrature_rule>& qrs)
+{
+  // std::cout << __FUNCTION__<<'\n';
+  
+  // sort in order of the weights
+  for (quadrature_rule& qr: qrs)
+  {
+    std::vector<double>& pts = qr.first;
+    std::vector<double>& w = qr.second;
+
+    // std::cout << w.size() <<' ';
+    
+    // Create index vector
+    std::vector<std::size_t> idx(w.size());
+    std::iota(idx.begin(), idx.end(), 0);
+    sort(idx.begin(), idx.end(), [&](std::size_t i, std::size_t j){ return w[i] < w[j]; } );
+
+    // Sort points
+    reorder(idx, w, 1);
+    reorder(idx, pts, pts.size()/w.size()); 
+  }
+  // std::cout << '\n';
+  
+}
+//-----------------------------------------------------------------------------
 void MultiMesh::_build_quadrature_rules_overlap(std::size_t quadrature_order)
 {
   begin(PROGRESS, "Building quadrature rules of cut cells' overlap.");
@@ -862,9 +905,9 @@ void MultiMesh::_build_quadrature_rules_overlap(std::size_t quadrature_order)
       // TODO: The tolerance here appears to work ok in 2D with few meshes
       // TODO: It might not be accurate in 3D or a large number of meshes
 
-      //const double tolerance = DOLFIN_EPS * cut_cell.volume();
-      //for (std::size_t i = 0; i < overlap_qr.size(); i++)
-      //	remove_quadrature_rule(overlap_qr[i], tolerance);
+      // const double tolerance = DOLFIN_EPS * cut_cell.volume();
+      // for (std::size_t i = 0; i < overlap_qr.size(); i++)
+      //   remove_quadrature_rule(overlap_qr[i], tolerance);
 
       if (parameters["compress_volume_quadrature"])
       {
@@ -874,6 +917,9 @@ void MultiMesh::_build_quadrature_rules_overlap(std::size_t quadrature_order)
         }
       }
 
+      // Sort?
+      //sort_qr(overlap_qr);
+      
       // Store quadrature rules for cut cell
       _quadrature_rules_overlap[cut_part][cut_cell_index] = overlap_qr;
     }
