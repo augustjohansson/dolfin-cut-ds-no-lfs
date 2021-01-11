@@ -276,6 +276,31 @@ namespace dolfin
 				      const Point& q1);
 
     static std::vector<Point>
+    _intersection_triangle_triangle_3d(const Point& p0,
+				       const Point& p1,
+				       const Point& p2,
+				       const Point& q0,
+				       const Point& q1,
+				       const Point& q2);
+
+    static std::vector<Point>
+    _intersection_tetrahedron_segment_3d(const Point& p0,
+					 const Point& p1,
+					 const Point& p2,
+					 const Point& p3,
+					 const Point& q0,
+					 const Point& q1);
+
+    static std::vector<Point>
+    _intersection_tetrahedron_triangle_3d(const Point& p0,
+					  const Point& p1,
+					  const Point& p2,
+					  const Point& p3,
+					  const Point& q0,
+					  const Point& q1,
+					  const Point& q2);
+
+    static std::vector<Point>
     _intersection_tetrahedron_tetrahedron_3d(const Point& p0,
 					     const Point& p1,
 					     const Point& p2,
