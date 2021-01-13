@@ -55,6 +55,9 @@ namespace dolfin
     /// Output for string
     LogStream& operator<< (const std::string& s);
 
+    /// Output for char
+    LogStream& operator<< (const char s);
+
     /// Output for int
     LogStream& operator<< (int a);
 

@@ -65,6 +65,12 @@ LogStream& LogStream::operator<< (const std::string& s)
   return *this;
 }
 //-----------------------------------------------------------------------------
+LogStream& LogStream::operator<< (const char s)
+{
+  buffer << s;
+  return *this;
+}
+//-----------------------------------------------------------------------------
 LogStream& LogStream::operator<< (int a)
 {
   buffer << a;
