@@ -22,6 +22,7 @@
 #include "CGALExactArithmetic.h"
 #include "predicates.h"
 #include "GeometryPredicates.h"
+#include "GeometryDebugging.h"
 
 using namespace dolfin;
 
@@ -30,6 +31,9 @@ bool GeometryPredicates::is_degenerate(const std::vector<Point>& simplex,
 				       std::size_t tdim,
                                        std::size_t gdim)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   if (simplex.size() == tdim + 1)
   {
     if (tdim == 1)
@@ -51,9 +55,10 @@ bool GeometryPredicates::is_degenerate(const std::vector<Point>& simplex,
   }
   else
   {
+    GeometryDebugging::print(simplex);
     dolfin_error("GeometryPredicates.cpp",
 		 "evaluate is_degenerate",
-		 "Input simplex size %d is not consistent with tdim %d", simplex.size(), tdim);
+		 "Input simplex size %d is not consistent with tdim %d (gdim %d)", simplex.size(), tdim, gdim);
   }
 
   dolfin_error("GeometryPredicates.cpp",
@@ -67,6 +72,9 @@ bool
 GeometryPredicates::_is_degenerate_tdim_1
 (const std::vector<Point>& simplex)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   return simplex[0] == simplex[1];
 }
 //-----------------------------------------------------------------------------
@@ -74,6 +82,9 @@ bool
 GeometryPredicates::_is_degenerate_tdim_2_gdim_2
 (const std::vector<Point>& simplex)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   return CHECK_CGAL(orient2d(simplex[0], simplex[1], simplex[2]) == 0.0,
 		    is_degenerate_2d(simplex[0], simplex[1], simplex[2]));
 }
@@ -82,6 +93,9 @@ bool
 GeometryPredicates::_is_degenerate_tdim_2_gdim_3
 (const std::vector<Point>& simplex)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   bool degen = true;
   const double ayz[2] = {simplex[0].y(), simplex[0].z()};
   const double byz[2] = {simplex[1].y(), simplex[1].z()};
@@ -112,6 +126,9 @@ bool
 GeometryPredicates::_is_degenerate_tdim_3_gdim_3
 (const std::vector<Point>& simplex)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   return
     CHECK_CGAL(orient3d(simplex[0], simplex[1], simplex[2], simplex[3]) == 0.0,
 	       is_degenerate_3d(simplex[0], simplex[1], simplex[2], simplex[3]));
@@ -119,6 +136,9 @@ GeometryPredicates::_is_degenerate_tdim_3_gdim_3
 //-----------------------------------------------------------------------------
 bool GeometryPredicates::is_finite(const std::vector<Point>& simplex)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   for (auto p : simplex)
   {
     if (!std::isfinite(p.x()))
@@ -133,6 +153,9 @@ bool GeometryPredicates::is_finite(const std::vector<Point>& simplex)
 //-----------------------------------------------------------------------------
 bool GeometryPredicates::is_finite(const std::vector<double>& simplex)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   for (double p : simplex)
   {
     if (!std::isfinite(p))
@@ -144,6 +167,9 @@ bool GeometryPredicates::is_finite(const std::vector<double>& simplex)
 bool GeometryPredicates::convex_hull_is_degenerate(const std::vector<Point>& points,
                                                    std::size_t gdim)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   // Points are assumed to be unique
 
   if (points.size() < gdim+1)

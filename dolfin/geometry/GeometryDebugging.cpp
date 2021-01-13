@@ -32,16 +32,18 @@ bool GeometryDebugging::_initialized = false;
 void GeometryDebugging::print(const Point& point)
 {
   set_indentation_level(0);
-  cout << "Point: " << point << endl;
+  //cout << "Point: " << point << endl;
+  for (std::size_t i = 0; i < 3; ++i)
+    cout << point[i]<<' ';
+  cout << endl;
 }
 //-----------------------------------------------------------------------------
 void GeometryDebugging::print(const std::vector<Point>& simplex)
 {
   set_indentation_level(0);
-  cout << "Simplex:";
+  cout << "Simplex:\n";
   for (const Point p : simplex)
-    cout << " " << p;
-  cout << endl;
+    print(p);
 }
 //-----------------------------------------------------------------------------
 void GeometryDebugging::print(const std::vector<Point>& simplex_0,
