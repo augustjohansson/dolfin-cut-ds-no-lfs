@@ -61,6 +61,12 @@ void GeometryDebugging::print(const std::vector<Point>& simplex_0,
   cout << endl;
 }
 //-----------------------------------------------------------------------------
+void GeometryDebugging::print(const std::vector<std::vector<Point>>& t)
+{
+  for (const std::vector<Point>& p: t)
+    print(p);
+}
+//-----------------------------------------------------------------------------
 void GeometryDebugging::plot(const Point& point)
 {
   set_indentation_level(0);
