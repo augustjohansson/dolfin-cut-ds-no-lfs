@@ -30,6 +30,10 @@
 #include "ConvexTriangulation.h"
 #include "CGALExactArithmetic.h"
 
+//#ifdef DOLFIN_GEOMETRY_PRINT
+#include "GeometryDebugging.h"
+//#endif
+
 using namespace dolfin;
 
 //-----------------------------------------------------------------------------
@@ -43,6 +47,10 @@ namespace
 		double tol)
   {
     std::vector<Point> points;
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+  GeometryDebugging::print(input_points);
+#endif
 
     for (std::size_t i = 0; i < input_points.size(); ++i)
     {
@@ -67,6 +75,10 @@ namespace
       if (unique)
 	points.push_back(input_points[i]);
     }
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+  GeometryDebugging::print(points);
+#endif
 
     return points;
   }
@@ -83,6 +95,9 @@ namespace
   std::vector<std::pair<std::size_t, std::size_t>>
   compute_convex_hull_planar(const std::vector<Point>& points)
   {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
     // Try to compute normal
     Point normal;
     bool found = false;
@@ -194,6 +209,9 @@ namespace
   std::vector<std::pair<double, std::size_t>>
   graham_scan_2d(const std::vector<Point>& points)
   {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
     // Sometimes we can get an extra point on an edge: a-----c--b. This
     // point c may cause problems for the graham scan. To avoid this,
     // use an extra center point.  Use this center point and point no 0
@@ -229,6 +247,9 @@ ConvexTriangulation::triangulate(const std::vector<Point>& p,
                                  std::size_t gdim,
                                  std::size_t tdim)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   if (p.empty())
     return std::vector<std::vector<Point>>();
 
@@ -343,6 +364,9 @@ ConvexTriangulation::triangulate_graham_scan_2d(const std::vector<Point>& input_
 std::vector<std::vector<Point>>
 ConvexTriangulation::_triangulate_graham_scan_2d(const std::vector<Point>& input_points)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   dolfin_assert(GeometryPredicates::is_finite(input_points));
   const std::size_t tdim = 2;
   const std::size_t gdim = 2;
@@ -394,6 +418,10 @@ ConvexTriangulation::triangulate_graham_scan_2d_3d(const std::vector<Point>& inp
 std::vector<std::vector<Point>>
 ConvexTriangulation::_triangulate_graham_scan_2d_3d(const std::vector<Point>& input_points)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+  GeometryDebugging::print(input_points);
+#endif
   dolfin_assert(GeometryPredicates::is_finite(input_points));
   const std::size_t tdim = 2;
   const std::size_t gdim = 3;
@@ -422,9 +450,10 @@ ConvexTriangulation::_triangulate_graham_scan_2d_3d(const std::vector<Point>& in
 			      points[i]);
     if (std::abs(o) > DOLFIN_EPS_LARGE)
     {
-      dolfin_error("ConvexTriangulation.cpp",
-		   "triangulate tdim 2, gdim 3",
-		   "points are not coplanar");
+      // dolfin_error("ConvexTriangulation.cpp",
+      //   	   "triangulate tdim 2, gdim 3",
+      //   	   "points are not coplanar since o=%e", o);
+      std::cout << __FUNCTION__<<' '<<__LINE__<<" warning, perhaps not coplanar: " << std::abs(o) << '\n';
     }
   }
 
@@ -453,13 +482,21 @@ ConvexTriangulation::_triangulate_graham_scan_2d_3d(const std::vector<Point>& in
       triangulation.push_back(tri);
   }
 
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout<<"   " << __FUNCTION__ << ' ' << __LINE__ << " done\n";
+  GeometryDebugging::print(triangulation);
+#endif
+  
   return triangulation;
 }
 //-----------------------------------------------------------------------------
 std::vector<std::vector<Point>>
 ConvexTriangulation::_triangulate_graham_scan_3d(const std::vector<Point>& input_points)
 {
-  dolfin_assert(GeometryPredicates::is_finite(input_points));
+ #ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
+ dolfin_assert(GeometryPredicates::is_finite(input_points));
   const std::size_t tdim = 3;
   const std::size_t gdim = 3;
 
@@ -621,6 +658,9 @@ ConvexTriangulation::_triangulate_graham_scan_3d(const std::vector<Point>& input
 std::vector<std::vector<Point>>
 ConvexTriangulation::triangulate_graham_scan_3d(const std::vector<Point>& pm)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   std::vector<std::vector<Point>> triangulation =
     _triangulate_graham_scan_3d(pm);
 
@@ -687,6 +727,9 @@ ConvexTriangulation::triangulate_graham_scan_3d(const std::vector<Point>& pm)
 //-----------------------------------------------------------------------------
 bool ConvexTriangulation::selfintersects(const std::vector<std::vector<Point>>& p)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   for (std::size_t i = 0; i < p.size(); i++)
   {
     for (std::size_t j = i+1; j < p.size(); j++)

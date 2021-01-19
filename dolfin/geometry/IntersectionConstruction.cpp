@@ -29,6 +29,10 @@
 #include "IntersectionConstruction.h"
 #include "CGALExactArithmetic.h"
 
+//#ifdef DOLFIN_GEOMETRY_PRINT
+#include "dolfin_simplex_tools.h"
+//#endif
+
 using namespace dolfin;
 
 namespace
@@ -73,7 +77,7 @@ namespace
   std::vector<Point> to_points(const std::vector<double>& points)
   {
     std::vector<Point> _points;
-    for (auto x : points)
+    for (double x : points)
       _points.push_back(Point(x));
     return _points;
   }
@@ -1046,41 +1050,78 @@ IntersectionConstruction::_intersection_tetrahedron_triangle_3d(const Point& p0,
 {
 #ifdef DOLFIN_GEOMETRY_PRINT
   std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+  std::cout << tools::drawtet(p0,p1,p2,p3)<<'\n'
+            << tools::drawtriangle(q0,q1,q2)<<'\n';
 #endif
   // The list of points (convex hull)
   std::vector<Point> points;
 
   // Add point intersections (3 + 4 = 7)
   add(points, intersection_tetrahedron_point_3d(p0, p1, p2, p3, q0));
+  //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_tetrahedron_point_3d(p0, p1, p2, p3, q1));
+    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_tetrahedron_point_3d(p0, p1, p2, p3, q2));
+    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_point_3d(q0, q1, q2, p0));
+    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_point_3d(q0, q1, q2, p1));
+    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_point_3d(q0, q1, q2, p2));
+    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_point_3d(q0, q1, q2, p3));
+    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
 
   // Add triangle-segment intersections (4 x 3 + 1 x 6 = 18)
   add(points, intersection_triangle_segment_3d(p0, p1, p2, q0, q1));
+    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(p0, p1, p2, q0, q2));
+    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(p0, p1, p2, q1, q2));
+    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(p0, p1, p3, q0, q1));
+    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(p0, p1, p3, q0, q2));
+    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(p0, p1, p3, q1, q2));
+    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(p0, p2, p3, q0, q1));
+    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(p0, p2, p3, q0, q2));
+    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(p0, p2, p3, q1, q2));
+    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(p1, p2, p3, q0, q1));
+    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(p1, p2, p3, q0, q2));
+    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(p1, p2, p3, q1, q2));
+    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(q0, q1, q2, p0, p1));
+    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(q0, q1, q2, p0, p2));
+    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(q0, q1, q2, p0, p3));
+    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(q0, q1, q2, p1, p2));
+    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(q0, q1, q2, p1, p3));
+    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(q0, q1, q2, p2, p3));
+  // std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
 
   dolfin_assert(GeometryPredicates::is_finite(points));
-  return unique(points);
+  const std::vector<Point> u = unique(points);  
+
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << "  " << __FUNCTION__ << ' ' << __LINE__ << " done:\n";
+  GeometryDebugging::print(u);
+#endif
+  return u;
+  
+  // dolfin_assert(GeometryPredicates::is_finite(points));
+  // return unique(points);
+
 }
 //-----------------------------------------------------------------------------
 std::vector<Point>
@@ -1172,9 +1213,6 @@ IntersectionConstruction::intersection_triangle_segment_3d(const Point& p0,
 							   const Point& q0,
 							   const Point& q1)
 {
-#ifdef DOLFIN_GEOMETRY_PRINT
-  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
-#endif
 #ifdef DOLFIN_ENABLE_GEOMETRY_DEBUGGING
   const auto dolfin = _intersection_triangle_segment_3d(p0, p1, p2, q0, q1);
   const auto cgal = cgal_intersection_triangle_segment_3d(p0, p1, p2, q0, q1);
@@ -1214,9 +1252,6 @@ IntersectionConstruction::intersection_triangle_triangle_3d(const Point& p0,
                                                             const Point& q1,
                                                             const Point& q2)
 {
-#ifdef DOLFIN_GEOMETRY_PRINT
-  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
-#endif
   // return CGAL_INTERSECTION_CHECK(_intersection_triangle_triangle_3d(p0, p1, p2, q0, q1, q2),
   // 				 cgal_intersection_triangle_triangle_3d(p0, p1, p2, q0, q1, q2));
   return _intersection_triangle_triangle_3d(p0, p1, p2, q0, q1, q2);
@@ -1230,9 +1265,6 @@ IntersectionConstruction::intersection_tetrahedron_segment_3d(const Point& p0,
                                                               const Point& q0,
                                                               const Point& q1)
 {
-#ifdef DOLFIN_GEOMETRY_PRINT
-  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
-#endif
   return _intersection_tetrahedron_segment_3d(p0, p1, p2, p3, q0, q1);
 }
 //-----------------------------------------------------------------------------
@@ -1245,9 +1277,6 @@ IntersectionConstruction::intersection_tetrahedron_triangle_3d(const Point& p0,
                                                                const Point& q1,
                                                                const Point& q2)
 {
-#ifdef DOLFIN_GEOMETRY_PRINT
-  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
-#endif
   // return CGAL_INTERSECTION_CHECK(_intersection_tetrahedron_triangle_3d(p0, p1, p2, p3, q0, q1, q2),
   // 				 cgal_intersection_tetrahedron_triangle_3d(p0, p1, p2, p3, q0, q1, q2));
   return _intersection_tetrahedron_triangle_3d(p0, p1, p2, p3, q0, q1, q2);
@@ -1263,9 +1292,6 @@ IntersectionConstruction::intersection_tetrahedron_tetrahedron_3d(const Point& p
 								  const Point& q2,
 								  const Point& q3)
 {
-#ifdef DOLFIN_GEOMETRY_PRINT
-  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
-#endif
   // return CGAL_INTERSECTION_CHECK(_intersection_tetrahedron_tetrahedron_3d(p0, p1, p2, p3, q0, q1, q2, q3),
   // 				 cgal_intersection_tetrahedron_tetrahedron_3d(p0, p1, p2, p3, q0, q1, q2, q3));
   return _intersection_tetrahedron_tetrahedron_3d(p0, p1, p2, p3, q0, q1, q2, q3);
