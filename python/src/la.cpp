@@ -53,6 +53,7 @@
 #include <dolfin/la/PETScLUSolver.h>
 #include <dolfin/la/PETScLinearOperator.h>
 #include <dolfin/la/PETScMatrix.h>
+#include <dolfin/la/PETScNestMatrix.h>
 #include <dolfin/la/PETScOptions.h>
 #include <dolfin/la/PETScPreconditioner.h>
 #include <dolfin/la/PETScVector.h>
@@ -862,14 +863,60 @@ namespace dolfin_wrappers
       .def("get_options_prefix", &dolfin::PETScMatrix::get_options_prefix)
       .def("set_options_prefix", &dolfin::PETScMatrix::set_options_prefix)
       .def("set_nullspace", &dolfin::PETScMatrix::set_nullspace)
-      .def("set_near_nullspace", &dolfin::PETScMatrix::set_near_nullspace);
+      .def("set_near_nullspace", &dolfin::PETScMatrix::set_near_nullspace)
+      .def("setrow", &dolfin::PETScMatrix::setrow);
+
+    // dolfin::PETScNestMatrix
+    py::class_<dolfin::PETScNestMatrix, std::shared_ptr<dolfin::PETScNestMatrix>,
+               dolfin::PETScMatrix>
+      (m, "PETScNestMatrix", "DOLFIN PETScMatrix object")
+      .def(py::init<>())
+      //.def(py::init<std::vector<std::shared_ptr<dolfin::GenericMatrix>>>() )
+      // explicit wrapper
+      .def(py::init([](py::list mats){
+	    std::vector<std::shared_ptr<dolfin::GenericMatrix>> _mats;
+	    for (auto mat : mats){
+	      // python object without cpp attribute.
+	      auto _mat = mat.cast<std::shared_ptr<dolfin::GenericMatrix>>();
+	      if(!mat.is_none())
+		_mats.push_back(_mat);
+	      else
+		_mats.push_back(NULL);
+	    }
+	    return dolfin::PETScNestMatrix(_mats);
+	  }))
+      .def("init_vectors",[](const dolfin::PETScNestMatrix self, dolfin::GenericVector& vec_out, py::list vecs){
+	  std::vector<std::shared_ptr<dolfin::GenericVector>> _vecs;
+	  for (auto vec : vecs)
+	  {
+	    auto _vec = vec.cast<std::shared_ptr<dolfin::GenericVector>>();
+	    _vecs.push_back(_vec);
+	  }
+	  self.init_vectors(vec_out,_vecs);
+	})
+
+      .def("mult", &dolfin::PETScNestMatrix::mult)
+      //.def("init_vectors",&dolfin::PETScNestMatrix::init_vectors)
+      //.def("get_block_dofs",&dolfin::PETScNestMatrix::get_block_dofs) 
+      .def("get_block_dofs",[](const dolfin::PETScNestMatrix self, std::size_t idx) 
+       {
+         std::vector<dolfin::la_index> dofs;   
+         self.get_block_dofs(dofs, idx);
+	 return   py::array_t<dolfin::la_index>(dofs.size(), dofs.data());
+       }, py::arg("idx"))
+
+      .def("convert_to_aij", &dolfin::PETScNestMatrix::convert_to_aij)
+      .def("size", (std::size_t (dolfin::PETScBaseMatrix::*)(std::size_t) const) &dolfin::PETScNestMatrix::size)
+      .def("str", &dolfin::PETScNestMatrix::str); 
+
 
     py::class_<dolfin::PETScPreconditioner, std::shared_ptr<dolfin::PETScPreconditioner>,
                dolfin::Variable>
       (m, "PETScPreconditioner", "DOLFIN PETScPreconditioner object")
       .def(py::init<std::string>(), py::arg("type")="default")
-      .def("preconditioners", &dolfin::PETScPreconditioner::preconditioners);
-
+      .def("preconditioners", &dolfin::PETScPreconditioner::preconditioners)
+      .def("set_fieldsplit", (void (*)(dolfin::PETScKrylovSolver&, const std::vector<std::vector<dolfin::la_index>>&, const std::vector<std::string>&))
+	   &dolfin::PETScPreconditioner::set_fieldsplit);
     #endif
 
     #ifdef HAS_TRILINOS
@@ -931,6 +978,7 @@ namespace dolfin_wrappers
                dolfin::GenericLinearSolver>
       (m, "LUSolver", "DOLFIN LUSolver object")
       .def(py::init<>())
+      .def(py::init<std::string>())
       .def(py::init<std::shared_ptr<const dolfin::GenericLinearOperator>, std::string>(),
            py::arg("A"), py::arg("method")="default")
       .def(py::init([](const MPICommWrapper comm,
@@ -938,7 +986,12 @@ namespace dolfin_wrappers
                        std::string method="default")
           { return std::unique_ptr<dolfin::LUSolver>(new dolfin::LUSolver(comm.get(), A, method)); }),
           py::arg("comm"), py::arg("A"), py::arg("method") = "default")
+      .def(py::init([](const MPICommWrapper comm,
+                       std::string method="default")
+          { return std::unique_ptr<dolfin::LUSolver>(new dolfin::LUSolver(comm.get(), method)); }),
+          py::arg("comm"), py::arg("method") = "default")
       .def("set_operator", &dolfin::LUSolver::set_operator)
+      .def("default_parameters", &dolfin::LUSolver::default_parameters)
       .def("solve", (std::size_t (dolfin::LUSolver::*)(dolfin::GenericVector&,
                                                        const dolfin::GenericVector&))
            &dolfin::LUSolver::solve)
@@ -964,8 +1017,13 @@ namespace dolfin_wrappers
           py::arg("comm"), py::arg("A"), py::arg("method") = "default")
       .def(py::init<std::shared_ptr<const dolfin::PETScMatrix>, std::string>(),
            py::arg("A"), py::arg("method")="default")
+      .def("set_operator",  (void (dolfin::PETScLUSolver::*)(std::shared_ptr<const dolfin::GenericLinearOperator>))
+           &dolfin::PETScLUSolver::set_operator)
       .def("get_options_prefix", &dolfin::PETScLUSolver::get_options_prefix)
       .def("set_options_prefix", &dolfin::PETScLUSolver::set_options_prefix)
+      .def("set_operator",  (void (dolfin::PETScLUSolver::*)(std::shared_ptr<const dolfin::GenericLinearOperator>))
+           &dolfin::PETScLUSolver::set_operator)
+      .def("set_from_options", &dolfin::PETScLUSolver::set_from_options)
       .def("solve", (std::size_t (dolfin::PETScLUSolver::*)(dolfin::GenericVector&, const dolfin::GenericVector&))
            &dolfin::PETScLUSolver::solve)
       .def("solve", (std::size_t (dolfin::PETScLUSolver::*)(const dolfin::GenericLinearOperator&,
@@ -991,8 +1049,15 @@ namespace dolfin_wrappers
           { return std::unique_ptr<dolfin::KrylovSolver>(new dolfin::KrylovSolver(comm.get(), A,
               method, preconditioner)); }),
           py::arg("comm"), py::arg("A"), py::arg("method") = "default", py::arg("preconditioner")="default")
+      .def(py::init([](const MPICommWrapper comm,
+                       std::string method="default",
+                       std::string preconditioner="default")
+          { return std::unique_ptr<dolfin::KrylovSolver>(new dolfin::KrylovSolver(comm.get(),
+              method, preconditioner)); }),
+          py::arg("comm"), py::arg("method") = "default", py::arg("preconditioner")="default")
       .def("set_operator", &dolfin::KrylovSolver::set_operator)
       .def("set_operators", &dolfin::KrylovSolver::set_operators)
+      .def("default_parameters", &dolfin::KrylovSolver::default_parameters)
       .def("solve", (std::size_t (dolfin::KrylovSolver::*)(dolfin::GenericVector&,
                                                            const dolfin::GenericVector&))
            &dolfin::KrylovSolver::solve)
@@ -1011,6 +1076,13 @@ namespace dolfin_wrappers
       .def(py::init<std::string, std::string>())
       .def(py::init<std::string, std::shared_ptr<dolfin::PETScPreconditioner>>())
       .def(py::init<KSP>())
+      .def(py::init([](const MPICommWrapper comm,
+                       std::string method="default",
+                       std::string preconditioner="default")
+          { return std::unique_ptr<dolfin::PETScKrylovSolver>(new dolfin::PETScKrylovSolver(comm.get(),
+              method, preconditioner)); }),
+          py::arg("comm"), py::arg("method") = "default", py::arg("preconditioner")="default")
+      .def("default_parameters", &dolfin::PETScKrylovSolver::default_parameters)
       .def("get_options_prefix", &dolfin::PETScKrylovSolver::get_options_prefix)
       .def("set_options_prefix", &dolfin::PETScKrylovSolver::set_options_prefix)
       .def("get_norm_type", (dolfin::PETScKrylovSolver::norm_type (dolfin::PETScKrylovSolver::*)() const)
@@ -1131,5 +1203,6 @@ namespace dolfin_wrappers
                                     const dolfin::GenericVector&, std::string, std::string)) &dolfin::solve,
           py::arg("A"), py::arg("x"), py::arg("b"), py::arg("method")="lu",
           py::arg("preconditioner")="none");
+    m.def("residual", &dolfin::residual);
   }
 }

@@ -20,8 +20,9 @@
 # along with DOLFIN. If not, see <http://www.gnu.org/licenses/>.
 
 import ufl
-from .functionspace import FunctionSpace
+from .functionspace import FunctionSpace, MixedFunctionSpace
 from .multimeshfunctionspace import MultiMeshFunctionSpace
+
 
 __all__ = ["TestFunction", "TrialFunction", "Argument",
            "TestFunctions", "TrialFunctions"]
@@ -43,6 +44,7 @@ class Argument(ufl.Argument):
 
     This is the overloaded PyDOLFIN variant.
     """
+
     def __init__(self, V, number, part=None):
 
         # Check argument
@@ -107,7 +109,11 @@ def Arguments(V, number):
     This is the overloaded PyDOLFIN variant.
 
     """
-    return ufl.split(Argument(V, number))
+    if isinstance(V, MixedFunctionSpace):
+        return [Argument(V.sub_space(i), number, i)
+                for i in range(V.num_sub_spaces())]
+    else:
+        return ufl.split(Argument(V, number))
 
 
 def TestFunctions(V):
@@ -118,7 +124,7 @@ def TestFunctions(V):
     This is the overloaded PyDOLFIN variant.
 
     """
-    return ufl.split(TestFunction(V))
+    return Arguments(V, 0)
 
 
 def TrialFunctions(V):
@@ -129,4 +135,4 @@ def TrialFunctions(V):
     This is the overloaded PyDOLFIN variant.
 
     """
-    return ufl.split(TrialFunction(V))
+    return Arguments(V, 1)

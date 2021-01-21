@@ -20,12 +20,17 @@
 #include <dolfin/fem/Form.h>
 #include <dolfin/fem/AssemblerBase.h>
 #include <dolfin/fem/Assembler.h>
+#include <dolfin/fem/MixedAssembler.h>
 #include <dolfin/fem/SparsityPatternBuilder.h>
 #include <dolfin/fem/SystemAssembler.h>
 #include <dolfin/fem/LinearVariationalProblem.h>
 #include <dolfin/fem/LinearVariationalSolver.h>
+#include <dolfin/fem/MixedLinearVariationalProblem.h>
+#include <dolfin/fem/MixedLinearVariationalSolver.h>
 #include <dolfin/fem/NonlinearVariationalProblem.h>
 #include <dolfin/fem/NonlinearVariationalSolver.h>
+#include <dolfin/fem/MixedNonlinearVariationalProblem.h>
+#include <dolfin/fem/MixedNonlinearVariationalSolver.h>
 #include <dolfin/fem/MultiMeshAssembler.h>
 #include <dolfin/fem/MultiMeshDirichletBC.h>
 #include <dolfin/fem/MultiMeshDofMap.h>

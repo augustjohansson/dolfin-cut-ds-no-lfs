@@ -17,6 +17,7 @@
 //
 // Modified by Ola Skavhaug 2007
 // Modified by Anders Logg 2008-2014
+// Modified by Cecile Daversin-Catty 2018
 
 #include <algorithm>
 
@@ -41,19 +42,41 @@ using namespace dolfin;
 //-----------------------------------------------------------------------------
 void
 SparsityPatternBuilder::build(SparsityPattern& sparsity_pattern,
-                              const Mesh& mesh,
-                              const std::vector<const GenericDofMap*> dofmaps,
-                              bool cells,
-                              bool interior_facets,
-                              bool exterior_facets,
-                              bool vertices,
-                              bool diagonal,
-                              bool init,
-                              bool finalize)
+			      const Mesh& mesh,
+			      const std::vector<const GenericDofMap*> dofmaps,
+			      bool cells,
+			      bool interior_facets,
+			      bool exterior_facets,
+			      bool vertices,
+			      bool diagonal,
+			      bool init,
+			      bool finalize)
+{
+  /// Mono-domain version :
+  /// Call the more generic build_mixed with mesh_ids[0] = mesh_ids[1] = integration mesh
+  /// mesh_ids[0] is the mesh id associated with the test function
+  /// mesh_ids[1] is the mesh id associated with the trial function
+  std::vector<std::size_t> mesh_ids = {mesh.id(), mesh.id()};
+  build_mixed(sparsity_pattern, mesh, mesh_ids, dofmaps, cells, interior_facets, exterior_facets, vertices, diagonal, init, finalize);
+}
+//-----------------------------------------------------------------------------
+void
+SparsityPatternBuilder::build_mixed(SparsityPattern& sparsity_pattern,
+				    const Mesh& mesh,
+				    std::vector<std::size_t> mesh_ids,
+				    const std::vector<const GenericDofMap*> dofmaps,
+				    bool cells,
+				    bool interior_facets,
+				    bool exterior_facets,
+				    bool vertices,
+				    bool diagonal,
+				    bool init,
+				    bool finalize)
 {
   // Get global dimensions and local range
   const std::size_t rank = dofmaps.size();
   std::vector<std::shared_ptr<const IndexMap>> index_maps(rank);
+
   for (std::size_t i = 0; i < rank; ++i)
   {
     dolfin_assert(dofmaps[i]);
@@ -74,6 +97,7 @@ SparsityPatternBuilder::build(SparsityPattern& sparsity_pattern,
 
   // Create vector to point to dofs
   std::vector<ArrayView<const dolfin::la_index>> dofs(rank);
+  std::vector<std::vector<dolfin::la_index>> dmaps(rank);
 
   // Build sparsity pattern for reals (globally supported basis members)
   // NOTE: It is very important that this is done before other integrals
@@ -95,17 +119,61 @@ SparsityPatternBuilder::build(SparsityPattern& sparsity_pattern,
   if (cells)
   {
     Progress p("Building sparsity pattern over cells", mesh.num_cells());
+    auto mapping_map = mesh.topology().mapping();
+
     for (CellIterator cell(mesh); !cell.end(); ++cell)
     {
-      // Tabulate dofs for each dimension and get local dimensions
+      std::vector<std::vector<std::size_t>> cell_index(rank);
+      std::vector<std::size_t> codim(rank);
       for (std::size_t i = 0; i < rank; ++i)
       {
-        auto dmap = dofmaps[i]->cell_dofs(cell->index());
-        dofs[i].set(dmap.size(), dmap.data());
+	cell_index[i].push_back(cell->index());
+
+	if(mesh_ids[i] != mesh.id() && mapping_map[mesh_ids[i]])
+	{
+	  auto mapping = mapping_map[mesh_ids[i]];
+	  dolfin_assert(mapping->mesh()->id() == mesh_ids[i]);
+
+	  codim[i] = mapping->mesh()->topology().dim() - mesh.topology().dim();
+	  if(codim[i] == 0)
+	    cell_index[i][0] = mapping->cell_map()[cell->index()];
+	  else if(codim[i] == 1)
+	  {
+	    const std::size_t D = mapping->mesh()->topology().dim();
+	    mapping->mesh()->init(D);
+	    mapping->mesh()->init(D - 1, D);
+
+	    Facet mesh_facet(*(mapping->mesh()), mapping->cell_map()[cell->index()]);
+	    for(std::size_t j=0; j<mesh_facet.num_entities(D);j++)
+	    {
+	      Cell mesh_cell(*(mapping->mesh()), mesh_facet.entities(D)[j]);
+	      if(j==0)
+		cell_index[i][0] = mesh_cell.index();
+	      else
+		cell_index[i].push_back(mesh_cell.index());
+	    }
+	  }
+#if 0 // Confusing when we are considering 3D-1D uncoupled problem
+	  else if(codim[i] == 2)
+	    std::cout << "[SparsityBuilder] codim 2 - Not implemented" << std::endl;
+#endif
+	}
       }
 
-      // Insert non-zeroes in sparsity pattern
-      sparsity_pattern.insert_local(dofs);
+      std::size_t nlocal_facets = cell_index[0].size();
+      if(rank > 1)
+	nlocal_facets = std::max(cell_index[0].size(), cell_index[1].size());
+
+      for(std::size_t j=0; j<nlocal_facets; ++j)
+      {
+	for(std::size_t i=0; i<rank; ++i)
+	{
+	  std::size_t jidx  = (codim[i] != 0) ? j:0;
+	  auto dmap = dofmaps[i]->cell_dofs(cell_index[i][jidx]);
+	  dofs[i].set(dmap.size(), dmap.data());
+	}
+	sparsity_pattern.insert_local(dofs);
+      }
       p++;
     }
   }
@@ -299,7 +367,7 @@ void SparsityPatternBuilder::build_multimesh_sparsity_pattern(
     // builder. This builds the sparsity pattern for all interacting
     // dofs on the current part.
     build(sparsity_pattern, mesh, dofmaps,
-          true, false, false, true, false, false);
+	  true, false, false, true, false, false);
 
     log(PROGRESS, "Building inter-mesh sparsity pattern on part %d.", part);
 

@@ -48,6 +48,7 @@ UFC::~UFC()
 {
   // Do nothing
 }
+
 //-----------------------------------------------------------------------------
 void UFC::init(const Form& a)
 {
@@ -110,9 +111,16 @@ void UFC::init(const Form& a)
   for (std::size_t i = 0; i < this->form.max_overlap_subdomain_id(); i++)
     overlap_integrals.push_back(std::shared_ptr<ufc::overlap_integral>(this->form.create_overlap_integral(i)));
 
+  // Create exterior_cut_facet integrals
+  default_exterior_cut_facet_integral
+    = std::shared_ptr<ufc::exterior_cut_facet_integral>(this->form.create_default_exterior_cut_facet_integral());
+  for (std::size_t i = 0; i < this->form.max_exterior_cut_facet_subdomain_id(); i++)
+    exterior_cut_facet_integrals.push_back(std::shared_ptr<ufc::exterior_cut_facet_integral>(this->form.create_exterior_cut_facet_integral(i)));
+  
   // Get maximum local dimensions
   std::vector<std::size_t> max_element_dofs;
   std::vector<std::size_t> max_macro_element_dofs;
+
   for (std::size_t i = 0; i < form.rank(); i++)
   {
     dolfin_assert(V[i]->dofmap());

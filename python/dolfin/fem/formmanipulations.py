@@ -18,12 +18,15 @@
 
 import ufl
 import ufl.algorithms.elementtransformations
+import ufl.algorithms.formsplitter
+
 from ufl.geometry import SpatialCoordinate
 from dolfin.function.functionspace import FunctionSpace
 from dolfin.function.function import Function
 from dolfin.function.argument import Argument
 
-__all__ = ["derivative", "adjoint", "increase_order", "tear"]
+
+__all__ = ["derivative", "adjoint", "increase_order", "tear", "extract_blocks"]
 
 
 def adjoint(form, reordered_arguments=None):
@@ -59,14 +62,16 @@ def derivative(form, u, du=None, coefficient_derivatives=None):
         # Get existing arguments from form and position the new one
         # with the next argument number
         form_arguments = form.arguments()
-
         number = max([-1] + [arg.number() for arg in form_arguments]) + 1
 
-        if any(arg.part() is not None for arg in form_arguments):
-            raise RuntimeError("Compute derivative of form, cannot automatically create new Argument using parts, please supply one")
+        # NOTE : Mixed-domains problems need to have arg.part() != None
+        # if any(arg.part() is not None for arg in form_arguments):
+        #     raise RuntimeError("Compute derivative of form, cannot automatically create new Argument using parts, please supply one")
         part = None
 
         if isinstance(u, Function):
+            # u.part() is None except with mixed-domains
+            part = u.part()
             V = u.function_space()
             du = Argument(V, number, part)
         elif isinstance(u, SpatialCoordinate):
@@ -78,7 +83,6 @@ def derivative(form, u, du=None, coefficient_derivatives=None):
             raise RuntimeError("Taking derivative of form w.r.t. a tuple of Coefficients. Take derivative w.r.t. a single Coefficient on a mixed space instead.")
         else:
             raise RuntimeError("Computing derivative of form w.r.t. '{}'. Supply Function as a Coefficient".format(u))
-
     return ufl.derivative(form, u, du, coefficient_derivatives)
 
 
@@ -120,3 +124,7 @@ def tear(V):
     space
     """
     return change_regularity(V, "DG")
+
+
+def extract_blocks(form, i=None, j=None):
+    return ufl.algorithms.formsplitter.extract_blocks(form, i, j)

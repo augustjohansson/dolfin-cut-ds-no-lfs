@@ -19,6 +19,7 @@
 // Modified by Johan Hake, 2009.
 // Modified by Joachim B. Haga, 2012.
 // Modified by Martin S. Alnaes, 2013.
+// Modified by Cecile Daversin-Catty, 2018.
 //
 // This file duplicates the Assembler::assemble* and
 // SystemAssembler::assemble* functions in namespace dolfin, and adds
@@ -45,6 +46,9 @@ namespace dolfin
   /// Assemble tensor
   void assemble(GenericTensor& A, const Form& a);
 
+  /// Assemble tensor
+  void assemble_mixed(GenericTensor& A, const Form& a, bool add=false);
+
   /// Assemble system (A, b) and apply Dirichlet boundary conditions
   void assemble_system(GenericMatrix& A, GenericVector& b,
                        const Form& a, const Form& L,
@@ -64,6 +68,9 @@ namespace dolfin
 
   /// Assemble scalar
   double assemble(const Form& a);
+
+  /// Assemble scalar
+  double assemble_mixed(const Form& a, bool add=false);
 
   /// Assemble scalar from multimesh form
   double assemble_multimesh(const MultiMeshForm& a);

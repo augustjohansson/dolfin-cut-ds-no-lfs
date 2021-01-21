@@ -23,6 +23,7 @@
 // Modified by Fredrik Valdmanis 2011-2012
 // Modified by Jan Blechta 2013
 // Modified by Martin Sandve Alnæs 2014
+// Modified by Cecile Daversin-Catty 2020
 
 #ifdef HAS_PETSC
 
@@ -215,6 +216,29 @@ void PETScMatrix::init(const TensorLayout& tensor_layout)
   // Keep nonzero structure after calling MatZeroRows
   ierr = MatSetOption(_matA, MAT_KEEP_NONZERO_PATTERN, PETSC_TRUE);
   if (ierr != 0) petsc_error(ierr, __FILE__, "MatSetOption");
+}
+//-----------------------------------------------------------------------------
+bool PETScMatrix::is_nest()
+{
+  PetscBool nest;
+  PetscObjectTypeCompare((PetscObject)_matA, MATNEST, &nest);
+  return (bool)nest;
+}
+//-----------------------------------------------------------------------------
+void PETScMatrix::set_nest(std::vector<Mat> petsc_mats)
+{
+  const unsigned int n = std::sqrt(petsc_mats.size());
+  PetscErrorCode ierr;
+  if(this->empty())
+  {
+    ierr = MatCreateNest(mpi_comm(), n, NULL, n, NULL, petsc_mats.data(), &_matA);
+    if (ierr != 0) petsc_error(ierr, __FILE__, "MatCreateNest");
+  }
+  else
+  {
+    ierr = MatNestSetSubMats(_matA, n, NULL, n, NULL, petsc_mats.data());
+    if (ierr != 0) petsc_error(ierr, __FILE__, "MatNestSetSubMats");
+  }
 }
 //-----------------------------------------------------------------------------
 bool PETScMatrix::empty() const
@@ -654,12 +678,14 @@ const PETScMatrix& PETScMatrix::operator= (const PETScMatrix& A)
       // Get reference count to _matA
       PetscInt ref_count = 0;
       PetscObjectGetReference((PetscObject)_matA, &ref_count);
+
       if (ref_count > 1)
       {
         dolfin_error("PETScMatrix.cpp",
                      "assign to PETSc matrix",
                      "More than one object points to the underlying PETSc object");
       }
+
       dolfin_error("PETScMatrix.cpp",
                    "assign to PETSc matrix",
                    "PETScMatrix may not be initialized more than once.");
@@ -774,6 +800,19 @@ MatNullSpace PETScMatrix::create_petsc_nullspace(const VectorSpaceBasis& nullspa
   return petsc_nullspace;
 }
 //-----------------------------------------------------------------------------
-
-
+void PETScMatrix::convert_to_aij()
+{
+  PetscErrorCode ierr;
+  try
+  {
+    ierr = MatConvert(_matA, MATAIJ, MAT_INPLACE_MATRIX, &_matA);
+    if (ierr != 0) PETScObject::petsc_error(ierr, __FILE__, "MatConvert");
+  }
+  catch(...)
+  {
+    ierr = MatConvert(_matA, MATAIJ, MAT_INITIAL_MATRIX, &_matA);
+    if (ierr != 0) PETScObject::petsc_error(ierr, __FILE__, "MatConvert");
+  }
+}
+//-----------------------------------------------------------------------------
 #endif

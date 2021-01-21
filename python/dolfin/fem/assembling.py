@@ -35,14 +35,18 @@ from dolfin.fem.form import Form
 from dolfin import MPI
 from dolfin.function.multimeshfunction import MultiMeshFunction
 
-__all__ = ["assemble", "assemble_local", "assemble_system",
+from ufl.form import sub_forms_by_domain
+
+__all__ = ["assemble", "assemble_mixed", "assemble_local", "assemble_system",
            "assemble_multimesh", "SystemAssembler"]
 
 
 def _create_dolfin_form(form, form_compiler_parameters=None,
                         function_spaces=None):
+    if form is None:
+        return form
     # First check if we got a cpp.Form
-    if isinstance(form, cpp.fem.Form):
+    elif isinstance(form, cpp.fem.Form):
 
         # Check that jit compilation has already happened
         if not hasattr(form, "_compiled_form"):
@@ -219,8 +223,52 @@ def assemble(form, tensor=None, form_compiler_parameters=None,
     # Return value
     return tensor
 
+# JIT assembler
+
+
+def assemble_mixed(form,
+                   tensor=None,
+                   form_compiler_parameters=None,
+                   add_values=False,
+                   finalize_tensor=True,
+                   keep_diagonal=False,
+                   backend=None):
+
+    # Create dolfin Form object referencing all data needed by assembler
+    if isinstance(form, cpp.fem.Form):
+        dolfin_forms = [form]
+    else:
+        dolfin_forms = []
+        for subform in sub_forms_by_domain(form):
+            dolfin_forms.append(_create_dolfin_form(subform, form_compiler_parameters))
+
+    # Create tensor
+    comm = dolfin_forms[0].mesh().mpi_comm()
+    tensor = _create_tensor(comm, form, dolfin_forms[0].rank(), backend, tensor)
+
+    # Create C++ mixed assembler
+    assembler = cpp.fem.MixedAssembler()
+
+    # Set assembler options
+    assembler.add_values = add_values
+    assembler.finalize_tensor = finalize_tensor
+    assembler.keep_diagonal = keep_diagonal
+
+    # Call C++ assemble
+    for k, dolfin_form in enumerate(dolfin_forms):
+        assembler.add_values = bool(k > 0)
+        assembler.assemble(tensor, dolfin_form)
+
+    # Convert to float for scalars
+    if dolfin_forms[0].rank() == 0:
+        tensor = tensor.get_scalar_value()
+
+    # Return value
+    return tensor
 
 # JIT multimesh assembler
+
+
 def assemble_multimesh(form,
                        tensor=None,
                        form_compiler_parameters=None,
@@ -444,18 +492,31 @@ class SystemAssembler(cpp.fem.SystemAssembler):
            bcs (_DirichletBC_)
               A list or a single DirichletBC (optional)
         """
-        # Create dolfin Form objects referencing all data needed by
-        # assembler
-        A_dolfin_form = _create_dolfin_form(A_form, form_compiler_parameters)
-        b_dolfin_form = _create_dolfin_form(b_form, form_compiler_parameters)
 
-        # Check bcs
-        bcs = _wrap_in_list(bcs, 'bcs', cpp.fem.DirichletBC)
+        if isinstance(A_form, list) and isinstance(b_form, list):
+            A_dolfin_forms = [_create_dolfin_form(f, form_compiler_parameters) for f in A_form]
+            b_dolfin_forms = [_create_dolfin_form(f, form_compiler_parameters) for f in b_form]
 
-        # Call C++ assemble function
-        cpp.fem.SystemAssembler.__init__(self, A_dolfin_form, b_dolfin_form,
-                                         bcs)
+            # Call C++ assemble function
+            cpp.fem.SystemAssembler.__init__(self, A_dolfin_forms, b_dolfin_forms,
+                                             bcs)
 
-        # Keep Python counterpart of bcs (and Python object it owns)
-        # alive
-        self._bcs = bcs
+            # Keep Python counterpart of bcs (and Python object it owns)
+            # alive
+            self._bcs = bcs
+        else:
+            # Create dolfin Form objects referencing all data needed by
+            # assembler
+            A_dolfin_form = _create_dolfin_form(A_form, form_compiler_parameters)
+            b_dolfin_form = _create_dolfin_form(b_form, form_compiler_parameters)
+
+            # Check bcs
+            bcs = _wrap_in_list(bcs, 'bcs', cpp.fem.DirichletBC)
+
+            # Call C++ assemble function
+            cpp.fem.SystemAssembler.__init__(self, A_dolfin_form, b_dolfin_form,
+                                             bcs)
+
+            # Keep Python counterpart of bcs (and Python object it owns)
+            # alive
+            self._bcs = bcs

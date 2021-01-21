@@ -21,6 +21,7 @@
 // Modified by Joachim B Haga, 2012
 // Modified by Martin Alnaes, 2013-2015
 // Modified by Chris Richardson, 2014
+// Modified by Cecile Daversin-Catty, 2019
 
 #include <cstdlib>
 #include <random>
@@ -120,7 +121,8 @@ void DofMapBuilder::build(DofMap& dofmap, const Mesh& mesh,
   if (!constrained_domain)
   {
     ufc_node_dofmap
-      = build_ufc_node_graph(node_graph0, node_local_to_global0,
+      = build_ufc_node_graph(node_graph0,
+                             node_local_to_global0,
                              dofmap._num_mesh_entities_global,
                              dofmap._ufc_dofmap,
                              mesh, constrained_domain, bs);
@@ -1074,8 +1076,10 @@ std::shared_ptr<const ufc::dofmap> DofMapBuilder::build_ufc_node_graph(
   {
     if (needs_entities[d])
     {
-      mesh.init(d);
-      DistributedMeshTools::number_entities(mesh, d);
+      auto mesh_has_entities = mesh.init(d);
+      if(mesh_has_entities)
+        DistributedMeshTools::number_entities(mesh, d);
+
       num_mesh_entities_local[d]  = mesh.num_entities(d);
       num_mesh_entities_global_unconstrained[d] = mesh.num_entities_global(d);
     }
@@ -1151,6 +1155,18 @@ std::shared_ptr<const ufc::dofmap> DofMapBuilder::build_ufc_node_graph(
       node_local_to_global[ufc_nodes_local[i]] = ufc_nodes_global[i];
     }
 
+  }
+
+  // If mesh is built from MeshView
+  if (!mesh.topology().mapping().empty() && needs_entities[0])
+  {
+    // Extra shared vertex/node that have no global index yet
+    const auto shared_vertices = mesh.topology().shared_entities(0);
+    const auto global_vertex_indices = mesh.topology().global_indices(0);
+    for(auto v = shared_vertices.begin(); v != shared_vertices.end(); ++v)
+      // Identify unmaped shared vertices (uninitialized node_local_to_global)
+      if(node_local_to_global[v->first] == 0)
+        node_local_to_global[v->first] = (std::size_t) global_vertex_indices[v->first];
   }
 
   return dofmaps[0];
@@ -1466,6 +1482,16 @@ void DofMapBuilder::compute_shared_nodes(
       size_t facet_node_local = cell_nodes[facet_nodes[i]];
       if(shared_nodes[facet_node_local] < 0)
         shared_nodes[facet_node_local] = 0;
+    }
+  }
+
+  if (!mesh.topology().mapping().empty()) // If mesh is built from MeshView
+  {
+    const auto shared_vertices = mesh.topology().shared_entities(0);
+    for(auto v = shared_vertices.begin(); v != shared_vertices.end(); ++v)
+    {
+      if(shared_nodes[v->first] < 0)
+        shared_nodes[v->first] = 0;
     }
   }
 }

@@ -307,6 +307,21 @@ namespace dolfin
     ///         An informal representation of the function space.
     std::string str(bool verbose=false) const;
 
+
+    // Compare
+    bool operator<(const Point& a) const
+    {
+      if (_x[0] != a[0]) {
+	return _x[0] < a[0];
+      }
+
+      if (_x[1] != a[1]) {
+	return _x[1] < a[1];
+      }
+
+      return _x[2] < a[2];
+    }
+
   private:
 
     std::array<double, 3> _x;

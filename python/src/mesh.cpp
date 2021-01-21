@@ -33,6 +33,7 @@
 #include <dolfin/mesh/MeshTopology.h>
 #include <dolfin/mesh/MeshGeometry.h>
 #include <dolfin/mesh/MeshEntity.h>
+#include <dolfin/mesh/MeshView.h>
 #include <dolfin/mesh/Vertex.h>
 #include <dolfin/mesh/Edge.h>
 #include <dolfin/mesh/Face.h>
@@ -40,6 +41,7 @@
 #include <dolfin/mesh/Cell.h>
 #include <dolfin/mesh/MeshEntityIterator.h>
 #include <dolfin/mesh/MeshFunction.h>
+#include <dolfin/mesh/MeshPartitioning.h>
 #include <dolfin/mesh/MeshValueCollection.h>
 #include <dolfin/mesh/MeshQuality.h>
 #include <dolfin/mesh/SubDomain.h>
@@ -95,6 +97,14 @@ namespace dolfin_wrappers
       .def("get_entity_index", &dolfin::MeshGeometry::get_entity_index)
       .def("num_entity_coordinates", &dolfin::MeshGeometry::num_entity_coordinates);
 
+    // dolfin::MeshView class
+    py::class_<dolfin::MeshView, std::shared_ptr<dolfin::MeshView>>
+      (m, "MeshView", "DOLFIN MeshView object")
+      .def("mesh", &dolfin::MeshView::mesh)
+      .def("create", &dolfin::MeshView::create)
+      .def("cell_map", &dolfin::MeshView::cell_map)
+      .def("vertex_map", &dolfin::MeshView::vertex_map);
+
     // dolfin::MeshTopology class
     py::class_<dolfin::MeshTopology, std::shared_ptr<dolfin::MeshTopology>, dolfin::Variable>
       (m, "MeshTopology", "DOLFIN MeshTopology object")
@@ -113,6 +123,7 @@ namespace dolfin_wrappers
       .def("have_global_indices", &dolfin::MeshTopology::have_global_indices)
       .def("ghost_offset", &dolfin::MeshTopology::ghost_offset)
       .def("cell_owner", (const std::vector<unsigned int>& (dolfin::MeshTopology::*)() const) &dolfin::MeshTopology::cell_owner)
+      .def("mapping", &dolfin::MeshTopology::mapping)
       .def("set_global_index", &dolfin::MeshTopology::set_global_index)
       .def("global_indices", [](const dolfin::MeshTopology& self, int dim)
            { auto& indices = self.global_indices(dim); return py::array_t<std::int64_t>(indices.size(), indices.data()); })
@@ -203,7 +214,8 @@ namespace dolfin_wrappers
            py::return_value_policy::reference)
       .def("ufl_id", [](const dolfin::Mesh& self){ return self.id(); })
       .def("cell_name", [](const dolfin::Mesh& self)
-           { return dolfin::CellType::type2string(self.type().cell_type()); });
+           { return dolfin::CellType::type2string(self.type().cell_type()); })
+      .def("build_mapping", &dolfin::Mesh::build_mapping);
 
     // dolfin::MeshData
     py::class_<dolfin::MeshData, std::shared_ptr<dolfin::MeshData>, dolfin::Variable>
@@ -319,6 +331,12 @@ namespace dolfin_wrappers
           std::vector<double> x;
           self.get_vertex_coordinates(x);
           return x; }, "Get cell vertex coordinates")
+      .def("get_coordinate_dofs", [](const dolfin::Cell& self){
+          std::vector<double> x;
+          self.get_coordinate_dofs(x);
+          return x; }, "Get the coordinates of the dofs in this cell")
+      .def("get_cell_data", &dolfin::Cell::get_cell_data)
+      .def("get_cell_topology", &dolfin::Cell::get_cell_topology)
       .def("orientation", (std::size_t (dolfin::Cell::*)() const) &dolfin::Cell::orientation)
       .def("orientation", (std::size_t (dolfin::Cell::*)(const dolfin::Point&) const) &dolfin::Cell::orientation);
 
@@ -416,7 +434,8 @@ namespace dolfin_wrappers
 	   &dolfin::MeshFunction<SCALAR>::set_value) \
       .def("where_equal", &dolfin::MeshFunction<SCALAR>::where_equal) \
       .def("array", [](dolfin::MeshFunction<SCALAR>& self) \
-           { return Eigen::Map<Eigen::Matrix<SCALAR, Eigen::Dynamic, 1>>(self.values(), self.size()); })
+           { return Eigen::Map<Eigen::Matrix<SCALAR, Eigen::Dynamic, 1>>(self.values(), self.size()); }, \
+           py::return_value_policy::reference_internal)
 
     MESHFUNCTION_MACRO(bool, Bool);
     MESHFUNCTION_MACRO(int, Int);
@@ -504,6 +523,9 @@ namespace dolfin_wrappers
 
       void map(Eigen::Ref<const Eigen::VectorXd> x, Eigen::Ref<Eigen::VectorXd> y) const override
       { PYBIND11_OVERLOAD(void, dolfin::SubDomain, map, x, y); }
+
+      void snap(Eigen::Ref<Eigen::VectorXd> x) const override
+      { PYBIND11_OVERLOAD(void, dolfin::SubDomain, snap, x); }
     };
 
     // dolfin::SubDomian
@@ -514,6 +536,8 @@ namespace dolfin_wrappers
            &dolfin::SubDomain::inside)
       .def("map", (void (dolfin::SubDomain::*)(Eigen::Ref<const Eigen::VectorXd>, Eigen::Ref<Eigen::VectorXd>) const)
            &dolfin::SubDomain::map)
+      .def("snap", (void (dolfin::SubDomain::*)(Eigen::Ref<Eigen::VectorXd>) const)
+           &dolfin::SubDomain::snap)
       .def("set_property", &dolfin::SubDomain::set_property)
       .def("get_property", &dolfin::SubDomain::get_property)
       .def("mark_cells", (void (dolfin::SubDomain::*)(dolfin::Mesh&, std::size_t, bool) const)
@@ -545,6 +569,10 @@ namespace dolfin_wrappers
                   &dolfin::MeshColoring::cell_colors)
       .def_static("color_cells", &dolfin::MeshColoring::color_cells);
 
+    // dolfin::MeshPartitioning
+    py::class_<dolfin::MeshPartitioning>(m, "MeshPartitioning")
+      .def_static("build_distributed_mesh", (void (*)(dolfin::Mesh&)) &dolfin::MeshPartitioning::build_distributed_mesh);
+
     // dolfin::MeshTransformation
     py::class_<dolfin::MeshTransformation>(m, "MeshTransformation")
       .def_static("translate", &dolfin::MeshTransformation::translate)
@@ -573,7 +601,9 @@ namespace dolfin_wrappers
       .def("quadrature_rules_interface",
 	   static_cast<const std::vector<dolfin::MultiMesh::quadrature_rule>(dolfin::MultiMesh::*)(std::size_t, unsigned int) const>(&dolfin::MultiMesh::quadrature_rules_interface))
       .def("quadrature_rules_cut_cells",
-	   static_cast<const dolfin::MultiMesh::quadrature_rule(dolfin::MultiMesh::*)(std::size_t, unsigned int) const>(&dolfin::MultiMesh::quadrature_rules_cut_cells));
+	   static_cast<const dolfin::MultiMesh::quadrature_rule(dolfin::MultiMesh::*)(std::size_t, unsigned int) const>(&dolfin::MultiMesh::quadrature_rules_cut_cells))
+      .def("quadrature_rules_exterior_cut_facets",
+	   static_cast<const dolfin::MultiMesh::quadrature_rule(dolfin::MultiMesh::*)(std::size_t, unsigned int) const>(&dolfin::MultiMesh::quadrature_rules_exterior_cut_facets));
   }
 
 

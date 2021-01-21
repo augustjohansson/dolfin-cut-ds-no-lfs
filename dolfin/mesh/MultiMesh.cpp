@@ -31,6 +31,8 @@
 #include <dolfin/geometry/ConvexTriangulation.h>
 #include <dolfin/geometry/GeometryPredicates.h>
 #include <dolfin/geometry/MeshPointIntersection.h>
+#include <dolfin/generation/RectangleMesh.h>
+#include <dolfin/generation/BoxMesh.h>
 
 #include "Cell.h"
 #include "Facet.h"
@@ -38,6 +40,13 @@
 #include "BoundaryMesh.h"
 #include "MeshFunction.h"
 #include "MultiMesh.h"
+
+
+#ifdef DOLFIN_GEOMETRY_PRINT
+#include <iostream>
+#include "dolfin_simplex_tools.h"
+#include <dolfin/geometry/GeometryDebugging.h>
+#endif
 
 using namespace dolfin;
 
@@ -225,11 +234,34 @@ MultiMesh::quadrature_rules_interface(std::size_t part,
   return q[cell_index];
 }
 //-----------------------------------------------------------------------------
-const std::map<unsigned int, std::vector<std::vector<double>>>&
-MultiMesh::facet_normals(std::size_t part) const
+const std::map<unsigned int, MultiMesh::quadrature_rule> &
+MultiMesh::quadrature_rules_exterior_cut_facets(std::size_t part) const
 {
   dolfin_assert(part < num_parts());
-  return _facet_normals[part];
+  return _quadrature_rules_exterior_cut_facets[part];
+}
+//-----------------------------------------------------------------------------
+const MultiMesh::quadrature_rule
+MultiMesh::quadrature_rules_exterior_cut_facets(std::size_t part,
+                                                unsigned int cell_index) const
+{
+  auto q = quadrature_rules_exterior_cut_facets(part);
+  dolfin_assert(cell_index < this->part(part)->num_cells());
+  return q[cell_index];
+}
+//-----------------------------------------------------------------------------
+const std::map<unsigned int, std::vector<std::vector<double>>>&
+MultiMesh::facet_normals_interface(std::size_t part) const
+{
+  dolfin_assert(part < num_parts());
+  return _facet_normals_interface[part];
+}
+//-----------------------------------------------------------------------------
+const std::map<unsigned int, std::vector<double>>&
+MultiMesh::facet_normals_exterior_cut_facets(std::size_t part) const
+{
+  dolfin_assert(part < num_parts());
+  return _facet_normals_exterior_cut_facets[part];
 }
 //-----------------------------------------------------------------------------
 std::shared_ptr<const BoundingBoxTree>
@@ -256,16 +288,16 @@ void MultiMesh::add(std::shared_ptr<const Mesh> mesh)
 void MultiMesh::build(std::size_t quadrature_order)
 {
   begin(PROGRESS, "Building multimesh.");
-
+  
   // Build boundary meshes
   _build_boundary_meshes();
-
+  
   // Build bounding box trees
   _build_bounding_box_trees();
-
+  
   // Build collision maps, i.e. classify cut, uncut and covered cells
   _build_collision_maps();
-
+  
   // For collisions with meshes of same type we get three types of
   // quadrature rules: the cut cell qr, qr of the overlap part and qr
   // of the interface.
@@ -273,12 +305,18 @@ void MultiMesh::build(std::size_t quadrature_order)
   // Build quadrature rules of the cut cells' overlap. Do this before
   // we build the quadrature rules of the cut cells
   _build_quadrature_rules_overlap(quadrature_order);
-
+  
   // Build quadrature rules of the cut cells
   _build_quadrature_rules_cut_cells(quadrature_order);
-
+  
   // Build quadrature rules and normals of the interface
   _build_quadrature_rules_interface(quadrature_order);
+  
+  // Build quadrature rules and normals for the exterior facets
+  _build_quadrature_rules_exterior_cut_facets(quadrature_order);
+
+  // Find faces where we need to apply ghost stab
+  _build_ghost_penalty_faces();
 
   // Make sure that cut cells are actually cut
   // TODO: Check if this needed
@@ -302,6 +340,7 @@ void MultiMesh::clear()
   _quadrature_rules_cut_cells.clear();
   _quadrature_rules_overlap.clear();
   _quadrature_rules_interface.clear();
+  _quadrature_rules_exterior_cut_facets.clear();
 }
 //-----------------------------------------------------------------------------
 double MultiMesh::compute_area() const
@@ -309,38 +348,57 @@ double MultiMesh::compute_area() const
   // Total area
   double area = 0.0;
 
+  // // Find covered cells
+  // std::vector<std::vector<bool>> is_covered(num_parts());
+  // for (std::size_t p = 0; p < num_parts(); ++p)
+  // {
+  //   is_covered[p].assign(part(p)->num_cells(), false);
+  //   for (unsigned int c : covered_cells(p))
+  //     is_covered[p][c] = true;
+  // }
+
   // Compute contribution from all parts
   for (std::size_t p = 0; p < num_parts(); p++)
   {
-    // Get the quadrature rules
-    const auto& quadrature_rules = quadrature_rules_interface(p);
+    //   const std::size_t tdim = part(p)->topology().dim();
 
-    // Get the collision map
-    const auto& cmap = collision_map_cut_cells(p);
+    //   // Sum area contribution from non-covered cells
+    //   for (std::size_t i = 0; i < part(p)->num_cells(); ++i)
+    //   {
+    //     if (!is_covered[p][i])
+    //     {
+    //       const Cell cell(*part(p), i);
+    //       for (FacetIterator f(cell); !f.end(); ++f)
+    //       {
+    //         // Facet is exterior if it's connected to one cell
+    //         const bool global_exterior_facet = (f->num_global_entities(tdim) == 1);
+    //         if (global_exterior_facet)
+    //         {
+    //           // FIXME
+    //           const MeshGeometry& geometry = part(p)->geometry();
+    //           dolfin_assert(geometry.dim() == 2);
+    //           const Facet facet(*part(p), f->index());
+    //           const std::size_t v0 = facet.entities(0)[0];
+    //           const std::size_t v1 = facet.entities(0)[1];
+    //           const Point p0 = geometry.point(v0);
+    //           const Point p1 = geometry.point(v1);
+    //           area += p1.distance(p0);
+    //         }
+    //       }
+    //     }
+    //   }
 
-    for (auto it = cmap.begin(); it != cmap.end(); ++it)
+    // Sum area contributions from qr
+    const auto& quadrature_rules = quadrature_rules_exterior_cut_facets(p);
+
+    // Iterate over cells whos exterior facets are cut
+    for (const auto& qrmap : quadrature_rules)
     {
-      // Get the cells that intersect the cut cell. These are the
-      // cutting cells
-      const unsigned int cut_cell_index = it->first;
-      const auto& cutting_cells = it->second;
-
-      // Iterate over cutting cells
-      for (auto jt = cutting_cells.begin(); jt != cutting_cells.end(); jt++)
-      {
-	// Get the quadrature rule for the interface part defined by
-	// the intersection of the cut and cutting cell
-	const std::size_t k = jt - cutting_cells.begin();
-	dolfin_assert(k < quadrature_rules.at(cut_cell_index).size());
-	const auto& qr = quadrature_rules.at(cut_cell_index)[k];
-
-	// Sum over all qr weights
-	for (std::size_t i = 0; i < qr.second.size(); ++i)
-	{
-	  area += qr.second[i];
-	}
-      }
-    }
+      const auto& qr = qrmap.second;
+      // tools::cout_qr(qr);
+      for (double w : qr.second) 
+        area += w;
+    } 
   }
 
   return area;
@@ -468,66 +526,66 @@ void MultiMesh::auto_cover(std::size_t p, const Point& point)
     is_covered[c] = true;
 
   if (cells.size())
+  {
+    for (const unsigned int cell_index : cells)
     {
-      for (const unsigned int cell_index : cells)
-	{
-	  // Find cell that is uncut or cut, i.e., not covered
-	  if (!is_covered[cell_index])
-	    {
-	      std::vector<unsigned int> new_covered_cells;
-	      new_covered_cells.push_back(cell_index);
-	      is_new_covered[cell_index] = true;
-	      std::size_t cnt = 0;
+      // Find cell that is uncut or cut, i.e., not covered
+      if (!is_covered[cell_index])
+      {
+        std::vector<unsigned int> new_covered_cells;
+        new_covered_cells.push_back(cell_index);
+        is_new_covered[cell_index] = true;
+        std::size_t cnt = 0;
 
-	      // Flooding
-	      while (cnt < new_covered_cells.size())
-		{
-		  // Get facet neighbors
-		  const Cell cell(*mesh, new_covered_cells[cnt]);
-		  cnt++;
+        // Flooding
+        while (cnt < new_covered_cells.size())
+        {
+          // Get facet neighbors
+          const Cell cell(*mesh, new_covered_cells[cnt]);
+          cnt++;
 
-		  for (FacetIterator f(cell); !f.end(); ++f)
-		    {
-		      for (CellIterator neigh_cell(*f); !neigh_cell.end();
-			   ++neigh_cell)
-			{
-			  if (neigh_cell->index() != new_covered_cells[cnt] and
-			      !is_new_covered[neigh_cell->index()] and
-			      !is_covered[neigh_cell->index()])
-			    {
-			      // Set as covered
-			      new_covered_cells.push_back(neigh_cell->index());
-			      is_new_covered[neigh_cell->index()] = true;
-			    }
-			}
-		    }
-		}
-	      // Update covered cells
-	      for (const unsigned int cell_index : new_covered_cells)
-		{
-		  // Add as covered
-		  _covered_cells[p].push_back(cell_index);
+          for (FacetIterator f(cell); !f.end(); ++f)
+          {
+            for (CellIterator neigh_cell(*f); !neigh_cell.end();
+                 ++neigh_cell)
+            {
+              if (neigh_cell->index() != new_covered_cells[cnt] and
+                  !is_new_covered[neigh_cell->index()] and
+                  !is_covered[neigh_cell->index()])
+              {
+                // Set as covered
+                new_covered_cells.push_back(neigh_cell->index());
+                is_new_covered[neigh_cell->index()] = true;
+              }
+            }
+          }
+        }
+        // Update covered cells
+        for (const unsigned int cell_index : new_covered_cells)
+        {
+          // Add as covered
+          _covered_cells[p].push_back(cell_index);
 
-		  // Remove from uncut
-		  _uncut_cells[p].erase(std::remove(_uncut_cells[p].begin(),
-						    _uncut_cells[p].end(),
-						    cell_index),
-					_uncut_cells[p].end());
+          // Remove from uncut
+          _uncut_cells[p].erase(std::remove(_uncut_cells[p].begin(),
+                                            _uncut_cells[p].end(),
+                                            cell_index),
+                                _uncut_cells[p].end());
 
-		  // Remove from collision maps
-		  if (_collision_maps_cut_cells[p].find(cell_index)
-		      != _collision_maps_cut_cells[p].end())
-		    _collision_maps_cut_cells[p][cell_index].clear();
-		}
-	      return;
-	    }
-	}
+          // Remove from collision maps
+          if (_collision_maps_cut_cells[p].find(cell_index)
+              != _collision_maps_cut_cells[p].end())
+            _collision_maps_cut_cells[p][cell_index].clear();
+        }
+        return;
+      }
     }
+  }
   else
-    {
-      info("part %d does not contain the point (%g,%g,%g)",
-	   p, point.x(), point.y(), point.z());
-    }
+  {
+    info("part %d does not contain the point (%g,%g,%g)",
+         p, point.x(), point.y(), point.z());
+  }
 }
 //-----------------------------------------------------------------------------
 void MultiMesh::_build_boundary_meshes()
@@ -737,6 +795,49 @@ void MultiMesh::_build_collision_maps()
   end();
 }
 //-----------------------------------------------------------------------------
+void reorder(const std::vector<size_t>& idx_in, std::vector<double>& v, std::size_t d)  
+{   
+  assert(idx_in.size() == v.size());
+  std::vector<size_t> idx = idx_in;
+  
+  for (std::size_t i = 0; i < idx.size()-1; ++i)
+  {
+    while (i != idx[i])
+    {
+      // swap
+      const std::size_t i2 = idx[i];
+      for (std::size_t j = 0; j < d; ++j)
+        std::swap(v[d*i+j], v[d*i2+j]);
+      std::swap(idx[i], idx[i2]);
+    }
+  }
+}
+
+void MultiMesh::sort_qr(std::vector<quadrature_rule>& qrs)
+{
+  // std::cout << __FUNCTION__<<'\n';
+  
+  // sort in order of the weights
+  for (quadrature_rule& qr: qrs)
+  {
+    std::vector<double>& pts = qr.first;
+    std::vector<double>& w = qr.second;
+
+    // std::cout << w.size() <<' ';
+    
+    // Create index vector
+    std::vector<std::size_t> idx(w.size());
+    std::iota(idx.begin(), idx.end(), 0);
+    sort(idx.begin(), idx.end(), [&](std::size_t i, std::size_t j){ return w[i] < w[j]; } );
+
+    // Sort points
+    reorder(idx, w, 1);
+    reorder(idx, pts, pts.size()/w.size()); 
+  }
+  // std::cout << '\n';
+  
+}
+//-----------------------------------------------------------------------------
 void MultiMesh::_build_quadrature_rules_overlap(std::size_t quadrature_order)
 {
   begin(PROGRESS, "Building quadrature rules of cut cells' overlap.");
@@ -811,9 +912,9 @@ void MultiMesh::_build_quadrature_rules_overlap(std::size_t quadrature_order)
       // TODO: The tolerance here appears to work ok in 2D with few meshes
       // TODO: It might not be accurate in 3D or a large number of meshes
 
-      //const double tolerance = DOLFIN_EPS * cut_cell.volume();
-      //for (std::size_t i = 0; i < overlap_qr.size(); i++)
-      //	remove_quadrature_rule(overlap_qr[i], tolerance);
+      // const double tolerance = DOLFIN_EPS * cut_cell.volume();
+      // for (std::size_t i = 0; i < overlap_qr.size(); i++)
+      //   remove_quadrature_rule(overlap_qr[i], tolerance);
 
       if (parameters["compress_volume_quadrature"])
       {
@@ -823,6 +924,9 @@ void MultiMesh::_build_quadrature_rules_overlap(std::size_t quadrature_order)
         }
       }
 
+      // Sort?
+      //sort_qr(overlap_qr);
+      
       // Store quadrature rules for cut cell
       _quadrature_rules_overlap[cut_part][cut_cell_index] = overlap_qr;
     }
@@ -894,8 +998,8 @@ void MultiMesh::_build_quadrature_rules_interface(std::size_t quadrature_order)
   // Clear and resize quadrature rules and normals
   _quadrature_rules_interface.clear();
   _quadrature_rules_interface.resize(num_parts());
-  _facet_normals.clear();
-  _facet_normals.resize(num_parts());
+  _facet_normals_interface.clear();
+  _facet_normals_interface.resize(num_parts());
 
   // First we prebuild a map from the boundary facets to full mesh
   // cells for all meshes: Loop over all boundary mesh facets to find
@@ -1007,15 +1111,19 @@ void MultiMesh::_build_quadrature_rules_interface(std::size_t quadrature_order)
 	  const Point facet_normal = cutting_cell_j.normal(local_facet_index);
 
 	  // Triangulate intersection of cut cell and boundary cell
+#ifdef DOLFIN_GEOMETRY_PRINT
+          std::cout << __FUNCTION__ <<' '<<__LINE__<<" call intersection\n";
+          std::cout << tools::drawtet(cut_cell_i)<<tools::drawtriangle(boundary_cell_j) << '\n';
+#endif
 	  const std::vector<Point> Eij_part_points
 	    = IntersectionConstruction::intersection(cut_cell_i, boundary_cell_j);
 
-	  // Check that the triangulation is not part of the cut cell boundary
-	  // FIXME: How can we avoid is_degenerate warnings in
-	  // _is_overlapped_interface by checking the input?
-	  if (Eij_part_points.size() < tdim_interface + 1 or
-	      _is_overlapped_interface(Eij_part_points, cut_cell_i, facet_normal))
-	    continue;
+	  // // Check that the triangulation is not part of the cut cell boundary
+	  // // FIXME: How can we avoid is_degenerate warnings in
+	  // // _is_overlapped_interface by checking the input?
+	  // if (Eij_part_points.size() < tdim_interface + 1 or
+	  //     _is_overlapped_interface(Eij_part_points, cut_cell_i, facet_normal))
+	  //   continue;
 
 	  const std::vector<std::vector<Point>> triangulation
 	    = ConvexTriangulation::triangulate(Eij_part_points,
@@ -1043,7 +1151,7 @@ void MultiMesh::_build_quadrature_rules_interface(std::size_t quadrature_order)
 		 sq, Eij, facet_normal, initial_polygons,
 		 tdim_interface, gdim, quadrature_order);
 	    }
-
+            
 	    // // Remove any near-trival quadrature rules
 	    // // TODO: Investigate the tolerance
 	    // double cut_size;
@@ -1105,12 +1213,171 @@ void MultiMesh::_build_quadrature_rules_interface(std::size_t quadrature_order)
       // }
 
       _quadrature_rules_interface[cut_part][cut_cell_index_i] = interface_qr;
-      _facet_normals[cut_part][cut_cell_index_i] = interface_normals;
+      _facet_normals_interface[cut_part][cut_cell_index_i] = interface_normals;
 
     } // end loop over cut_i
   } // end loop over parts
+  
+  end();
+}
+//------------------------------------------------------------------------------
+void MultiMesh::_build_quadrature_rules_exterior_cut_facets(std::size_t quadrature_order)
+{
+  {  
+    // Copy qr and normals from mm_ext to *this
+
+    // Clear and resize
+    _quadrature_rules_exterior_cut_facets.clear();
+    _quadrature_rules_exterior_cut_facets.resize(num_parts());
+    _facet_normals_exterior_cut_facets.clear();
+    _facet_normals_exterior_cut_facets.resize(num_parts());
+
+    // FIXME assume all parts are of the same gdim
+    const std::size_t gdim = part(0)->geometry().dim();
+    
+    // Create extended multimesh with given size
+    Point a(9e99,9e99,9e99), b(-9e99,-9e99,-9e99); // FIXME
+    for (std::size_t p = 0; p < num_parts(); ++p)
+    {
+      const auto& x = part(p)->coordinates();
+      std::size_t idx = 0;
+      for (std::size_t i = 0; i < x.size()/gdim; ++i)
+      {
+        for (std::size_t d = 0; d < gdim; ++d, ++idx)
+        {
+          if (a[d] > x[idx])
+            a[d] = x[idx];
+          if (b[d] < x[idx])
+            b[d] = x[idx];
+        }
+      }
+    }
+
+    // Extend a bit
+    Point aext = a, bext = b;
+    for (std::size_t d = 0; d < gdim; ++d)
+    {
+      aext[d] -= 0.03*M_PI*(b[d] - a[d])-M_PI*DOLFIN_EPS;
+      bext[d] += 0.031*M_PI*(b[d] - a[d])+M_PI*DOLFIN_EPS;
+    }
+    
+    // FIXME set number of elements smarter
+    const std::size_t N = static_cast<std::size_t>(std::round(std::max<std::size_t>(1, std::pow(part(0)->num_cells(), 1.0/gdim))));
+    
+    // // Make the multimesh fit in one mm_ext element (much slower)
+    // const Point L = b-a;
+    // dolfin_assert(gdim == 2);
+    // const Point aext(a[0]-3*L[0], a[1]-L[1]/3);
+    // const Point bext(b[0]+L[0]/3, b[1]+3*L[1]);
+    // const std::size_t N = 1;
+
+    // Constuct extended multimesh
+    auto mm_ext = std::make_shared<MultiMesh>();
+    if (gdim == 2)
+      mm_ext->add(std::make_shared<RectangleMesh>(aext, bext, N, N, "crossed"));
+    else if (gdim == 3)
+      mm_ext->add(std::make_shared<BoxMesh>(aext, bext, N, N, N));
+    else
+      dolfin_assert(false);
+
+    for (std::size_t p = 0; p < num_parts(); ++p)
+      mm_ext->add(part(p));
+
+    // Build manually
+    //mm_ext->build(_quadrature_order);
+    {
+      // FIXME: these are public
+      mm_ext->_build_boundary_meshes();
+      mm_ext->_build_bounding_box_trees();
+      mm_ext->_build_collision_maps();
+      //Timer timer; timer.start();
+      mm_ext->_build_quadrature_rules_interface(quadrature_order);
+      //std::cout << "timer " << timer.stop() << std::endl;
+    }
+
+    // Get mm_ext data
+    const auto& quadrature_rules = mm_ext->quadrature_rules_interface(0);
+    const auto& facet_normals_interface = mm_ext->facet_normals_interface(0);
+
+    // Get collision map
+    const auto& cmap = mm_ext->collision_map_cut_cells(0);
+
+    // Iterate over all cut cells in collision map
+    for (auto it = cmap.begin(); it != cmap.end(); ++it)
+    {
+      // Get mm_ext cut cell
+      const unsigned int cut_cell_index = it->first;
+
+      // FIXME: Only check exterior facets
+        
+      // Iterate over cutting cells
+      const auto& cutting_cells = it->second;
+      for (auto jt = cutting_cells.begin(); jt != cutting_cells.end(); jt++)
+      {
+        // Get cutting part and cutting cell
+        const std::size_t cutting_part = jt->first;
+        const std::size_t cutting_cell_index = jt->second;
+          
+        // Get specific data from mm_ext
+        const std::size_t k = jt - cutting_cells.begin();
+        dolfin_assert(k < quadrature_rules.at(cut_cell_index).size());
+        const auto& qr = quadrature_rules.at(cut_cell_index)[k];
+        std::vector<double> n = facet_normals_interface.at(cut_cell_index)[k];
+
+        // Save quadrature rule to *this
+        _add_quadrature_rule
+          (_quadrature_rules_exterior_cut_facets[cutting_part-1][cutting_cell_index],
+           qr, gdim, 1);
+
+        // Save flipped normals to *this
+        for (double& n_i : n)
+          n_i *= -1;
+
+        _facet_normals_exterior_cut_facets[cutting_part-1][cutting_cell_index].insert
+          (_facet_normals_exterior_cut_facets[cutting_part-1][cutting_cell_index].end(),
+           n.begin(), n.end());
+          
+      }
+    }
+  }
 
   end();
+}
+//------------------------------------------------------------------------------
+void MultiMesh::_build_ghost_penalty_faces()
+{
+  // Find the faces where we need to apply ghost
+  // stabilization. Ideally we would like to do this as
+  // dS(subdomain_data=some_faces) but this doesn't work for
+  // multimesh. Therefore use the custom assembly over the
+  // _ghost_penalty_faces.
+  
+  _ghost_penalty_faces.resize(num_parts());
+
+  for (std::size_t p = 0; p < num_parts(); ++p)
+  {
+    const auto mesh = part(p);
+    
+    // Find all cut cells close to the boundary, i.e, having a cell facet
+    // that is exterior.
+    std::vector<bool> cells_to_include(mesh->num_cells(), false);
+
+    for (const auto& cell_index: cut_cells(p))
+    {
+      const Cell cell(*mesh, cell_index);
+      for (FacetIterator facet(cell); !facet.end(); ++facet)
+      {
+        if (facet->exterior())
+        {
+          cells_to_include[cell_index] = true;
+        }
+      }
+    }
+
+    for (std::size_t i = 0; i < mesh->num_cells(); ++i)
+      if (cells_to_include[i])
+        _ghost_penalty_faces[p].push_back(i);
+  }
 }
 //------------------------------------------------------------------------------
 bool
@@ -1118,6 +1385,12 @@ MultiMesh::_is_overlapped_interface(std::vector<Point> simplex,
 				    const Cell cut_cell,
 				    Point simplex_normal) const
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ <<' '<<__LINE__<<'\n';
+  GeometryDebugging::print(simplex);
+  std::cout << tools::drawtriangle(cut_cell) << '\n';
+#endif
+  
   // Returns true if an interface intersection is overlapped by the cutting cell.
   // The criterion for the edge being overlapped should be that
   //  (1) The intersection is contained within the cell facets
@@ -1138,6 +1411,7 @@ MultiMesh::_is_overlapped_interface(std::vector<Point> simplex,
     if (c > DOLFIN_EPS_LARGE)
       return false;
   }
+  
   // Identify a facet being cut, if any
   const std::size_t tdim = cut_cell.dim();
   const std::size_t gdim = cut_cell.mesh().geometry().dim();
@@ -1235,7 +1509,10 @@ void MultiMesh::_inclusion_exclusion_overlap
  const std::vector<std::pair<std::size_t, Polyhedron>>& initial_polyhedra,
  std::size_t tdim,
  std::size_t gdim,
- std::size_t quadrature_order) const
+ std::size_t quadrature_order,
+ // FIXME hack 
+ const std::vector<std::vector<Point>>* const initial_polyhedra_normals,
+ std::vector<Point>* normals) const
 {
   begin(PROGRESS, "The inclusion exclusion principle.");
 
@@ -1313,6 +1590,10 @@ void MultiMesh::_inclusion_exclusion_overlap
 	      // we don't call this a polyhedron yet, but rather a
 	      // std::vector<Simplex> since we are still filling
 	      // the polyhedron with simplices
+#ifdef DOLFIN_GEOMETRY_PRINT
+              std::cout << __FUNCTION__ <<' '<<__LINE__<<" call intersection\n";
+              std::cout << tools::drawtriangle(initial_simplex)<<tools::drawtriangle(previous_simplex) << '\n';
+#endif
 	      const std::vector<Point> intersection_points
 		= IntersectionConstruction::intersection(initial_simplex,
 							 previous_simplex,
@@ -1429,6 +1710,10 @@ void MultiMesh::_inclusion_exclusion_interface
     for (const Simplex& simplex: pol_pair.second.first)
     {
       dolfin_assert(simplex.size() == tdim_bulk + 1);
+#ifdef DOLFIN_GEOMETRY_PRINT
+      std::cout << __FUNCTION__ <<' '<<__LINE__<<" call intersection\n";
+      std::cout << tools::drawtet(Eij)<<tools::drawtriangle(simplex) << '\n';
+#endif
       const std::vector<Point> Eij_cap_Tk_points
 	= IntersectionConstruction::intersection(Eij, simplex, gdim);
       Polyhedron Eij_cap_Tk;
@@ -1666,5 +1951,10 @@ void MultiMesh::remove_quadrature_rule(quadrature_rule& qr,
     qr.first.clear();
     qr.second.clear();
   }
+}
+//-----------------------------------------------------------------------------
+std::vector<std::size_t> MultiMesh::ghost_penalty_faces(const std::size_t part) const
+{
+  return _ghost_penalty_faces[part];
 }
 //-----------------------------------------------------------------------------

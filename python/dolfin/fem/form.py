@@ -35,23 +35,23 @@ class Form(cpp.fem.Form):
         # Add DOLFIN include paths (just the Boost path for special
         # math functions is really required)
         # FIXME: move getting include paths to elsewhere
+        # FIXME: How to add these path is form_compiler parameters is input,
+        # and a dolfin::Parameters
         if form_compiler_parameters is None:
             form_compiler_parameters = {"external_include_dirs": dolfin_pc["include_dirs"]}
-        else:
-            # FIXME: add paths if dict entry already exists
-            form_compiler_parameters["external_include_dirs"] = dolfin_pc["include_dirs"]
 
         ufc_form = ffc_jit(form, form_compiler_parameters=form_compiler_parameters,
                            mpi_comm=mesh.mpi_comm())
         ufc_form = cpp.fem.make_ufc_form(ufc_form[0])
 
-        function_spaces = kwargs.get("function_spaces")
+        # TO BE CHECKED
+        self.function_spaces = kwargs.get("function_spaces")
 
         # Extraction of functionspaces contained in a MultiMeshFunctionSpace
-        if not function_spaces:
-            function_spaces = [func.function_space()._cpp_object for func in form.arguments()]
+        if not self.function_spaces:
+            self.function_spaces = [func.ufl_function_space()._cpp_object for func in form.arguments()]
 
-        cpp.fem.Form.__init__(self, ufc_form, function_spaces)
+        cpp.fem.Form.__init__(self, ufc_form, self.function_spaces)
 
         original_coefficients = form.coefficients()
         self.coefficients = []
@@ -71,10 +71,10 @@ class Form(cpp.fem.Form):
             if isinstance(self.coefficients[i], cpp.function.GenericFunction):
                 self.set_coefficient(i, self.coefficients[i])
 
-        # Attach mesh (because function spaces and coefficients may be
-        # empty lists)
-        if not function_spaces:
-            self.set_mesh(mesh)
+        # Attach mesh :
+        # - because function spaces and coefficients may be empty lists
+        # - because function spaces can be built from different meshes
+        self.set_mesh(mesh)
 
         # Attach subdomains to C++ Form if we have them
         subdomains = self.subdomains.get("cell")

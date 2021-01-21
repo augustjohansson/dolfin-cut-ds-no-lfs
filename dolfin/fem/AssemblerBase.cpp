@@ -20,6 +20,7 @@
 // Modified by Kent-Andre Mardal, 2008
 // Modified by Johannes Ring, 2012
 // Modified by Martin Alnaes, 2014
+// Modified by Cecile Daversin-Catty, 2018
 
 #include <memory>
 
@@ -51,9 +52,12 @@ void AssemblerBase::init_global_tensor(GenericTensor& A, const Form& a)
 
   // Get dof maps
   std::vector<const GenericDofMap*> dofmaps;
+  std::vector<std::size_t> mesh_ids(a.rank());
   for (std::size_t i = 0; i < a.rank(); ++i)
+  {
     dofmaps.push_back(a.function_space(i)->dofmap().get());
-
+    mesh_ids[i] = a.function_space(i)->mesh()->id();
+  }
   // Get mesh
   dolfin_assert(a.mesh());
   const Mesh& mesh = *(a.mesh());
@@ -88,13 +92,13 @@ void AssemblerBase::init_global_tensor(GenericTensor& A, const Form& a)
     if (tensor_layout->sparsity_pattern())
     {
       SparsityPattern& pattern = *tensor_layout->sparsity_pattern();
-      SparsityPatternBuilder::build(pattern,
-                                    mesh, dofmaps,
-                                    a.ufc_form()->has_cell_integrals(),
-                                    a.ufc_form()->has_interior_facet_integrals(),
-                                    a.ufc_form()->has_exterior_facet_integrals(),
-                                    a.ufc_form()->has_vertex_integrals(),
-                                    keep_diagonal);
+      SparsityPatternBuilder::build_mixed(pattern,
+					  mesh, mesh_ids, dofmaps,
+					  a.ufc_form()->has_cell_integrals(),
+					  a.ufc_form()->has_interior_facet_integrals(),
+					  a.ufc_form()->has_exterior_facet_integrals(),
+					  a.ufc_form()->has_vertex_integrals(),
+					  keep_diagonal);
     }
     t0.stop();
 

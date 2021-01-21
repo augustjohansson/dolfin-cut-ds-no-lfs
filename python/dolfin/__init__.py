@@ -57,6 +57,8 @@ from .cpp.fem import (FiniteElement, DofMap, Assembler, MultiMeshAssembler,
                       PointSource, DiscreteOperators,
                       LinearVariationalSolver,
                       NonlinearVariationalSolver,
+                      MixedLinearVariationalSolver,
+                      MixedNonlinearVariationalSolver,
                       SparsityPatternBuilder,
                       MultiMeshDirichletBC, adapt)
 
@@ -86,10 +88,11 @@ from .cpp.la import (list_linear_algebra_backends,
                      krylov_solver_methods,
                      krylov_solver_preconditioners,
                      normalize,
-                     VectorSpaceBasis, in_nullspace)
+                     VectorSpaceBasis, in_nullspace,
+                     residual)
 
 if has_linear_algebra_backend('PETSc'):
-    from .cpp.la import (PETScVector, PETScMatrix, PETScFactory,
+    from .cpp.la import (PETScVector, PETScMatrix, PETScNestMatrix, PETScFactory,
                          PETScOptions, PETScLUSolver,
                          PETScKrylovSolver, PETScPreconditioner)
     from .cpp.fem import PETScDMCollection
@@ -108,7 +111,7 @@ from .cpp.la import (IndexMap, DefaultFactory, Matrix, Vector, Scalar,
                      BlockMatrix, BlockVector)
 from .cpp.la import GenericVector  # Remove when pybind11 transition complete
 from .cpp.log import (info, Table, set_log_level, get_log_level, LogLevel,
-                      Progress)
+                      Progress, begin, end, error, warning, set_log_active)
 from .cpp.math import ipow, near, between
 from .cpp.mesh import (Mesh, MeshTopology, MeshGeometry, MeshEntity,
                        MeshColoring, CellType, Cell, Facet, Face,
@@ -116,7 +119,8 @@ from .cpp.mesh import (Mesh, MeshTopology, MeshGeometry, MeshEntity,
                        entities, vertices, SubDomain, BoundaryMesh,
                        MeshEditor, MeshQuality, SubMesh,
                        DomainBoundary, PeriodicBoundaryComputation,
-                       MeshTransformation, SubsetIterator, MultiMesh)
+                       MeshTransformation, SubsetIterator, MultiMesh, MeshView,
+                       MeshPartitioning)
 
 from .cpp.nls import (NonlinearProblem, NewtonSolver, OptimisationProblem)
 from .cpp.refinement import refine, p_refine
@@ -137,7 +141,7 @@ from .common import timer
 from .common.timer import Timer, timed
 from .common.plotting import plot
 
-from .fem.assembling import (assemble, assemble_system, assemble_multimesh,
+from .fem.assembling import (assemble, assemble_system, assemble_multimesh, assemble_mixed,
                              SystemAssembler, assemble_local)
 from .fem.form import Form
 from .fem.norms import norm, errornorm
@@ -147,8 +151,11 @@ from .fem.interpolation import interpolate
 from .fem.projection import project
 from .fem.solvers import LocalSolver
 from .fem.solving import (solve, LinearVariationalProblem,
-                          NonlinearVariationalProblem)
-from .fem.formmanipulations import (derivative, adjoint, increase_order, tear)
+                          NonlinearVariationalProblem,
+                          MixedLinearVariationalProblem,
+                          MixedNonlinearVariationalProblem)
+from .fem.solving import assemble_mixed_system, solve_mixed_system
+from .fem.formmanipulations import (derivative, adjoint, increase_order, tear, extract_blocks)
 
 # Need to be careful with other to avoid circular dependency
 from .fem.adaptivesolving import (AdaptiveLinearVariationalSolver,
@@ -158,8 +165,10 @@ from .function.multimeshfunctionspace import (MultiMeshFunctionSpace,
                                               MultiMeshVectorFunctionSpace,
                                               MultiMeshTensorFunctionSpace)
 from .function.functionspace import (FunctionSpace,
-                                     VectorFunctionSpace,
+                                     MixedFunctionSpace,
+                                     VectorFunctionSpace, 
                                      TensorFunctionSpace)
+
 from .function.function import Function
 from .function.multimeshfunction import MultiMeshFunction
 from .function.argument import (TestFunction, TrialFunction,
@@ -182,7 +191,8 @@ from .mesh.meshfunction import (MeshFunction)
 from .mesh.meshvaluecollection import MeshValueCollection
 from .mesh.subdomain import CompiledSubDomain
 
-from .multistage.multistagescheme import (RK4, CN2, ExplicitMidPoint,
+from .multistage.multistagescheme import (RK4, CN2, CrankNicolson,
+                                          ExplicitMidPoint,
                                           ESDIRK3, ESDIRK4,
                                           ForwardEuler, BackwardEuler)
 from .multistage.multistagesolvers import PointIntegralSolver, RKSolver
@@ -194,7 +204,7 @@ from ufl import (FiniteElement, TensorElement, VectorElement,
                  lt, ge, gt, split, cross, inner, dot, grad, nabla_grad, curl,
                  dx, div, Measure, det, pi, sin, cos, tan, acos, asin, atan,
                  ln, exp, sqrt, bessel_I, bessel_J, bessel_K,
-                 bessel_Y, Dx, ds, dS, dP, dX, dC, dI, dO, interval, triangle,
+                 bessel_Y, Dx, ds, dS, dP, dX, dC, dI, dO, dsX, dsC, interval, triangle,
                  tetrahedron, quadrilateral, hexahedron, avg, jump,
                  sym, tr, Identity, variable, diff, as_vector,
                  as_tensor, as_matrix, system, outer, dev, skew,
