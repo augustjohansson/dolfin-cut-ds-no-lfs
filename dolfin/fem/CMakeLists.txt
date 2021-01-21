@@ -19,12 +19,17 @@ set(HEADERS
   LinearVariationalSolver.h
   LocalAssembler.h
   LocalSolver.h
+  MixedAssembler.h
+  MixedLinearVariationalProblem.h
+  MixedLinearVariationalSolver.h
   MultiMeshAssembler.h
   MultiMeshDirichletBC.h
   MultiMeshDofMap.h
   MultiMeshForm.h
   NonlinearVariationalProblem.h
   NonlinearVariationalSolver.h
+  MixedNonlinearVariationalProblem.h
+  MixedNonlinearVariationalSolver.h
   PETScDMCollection.h
   PointSource.h
   solve.h
@@ -51,12 +56,17 @@ set(SOURCES
   LinearVariationalSolver.cpp
   LocalAssembler.cpp
   LocalSolver.cpp
+  MixedAssembler.cpp
+  MixedLinearVariationalProblem.cpp
+  MixedLinearVariationalSolver.cpp
   MultiMeshAssembler.cpp
   MultiMeshDirichletBC.cpp
   MultiMeshDofMap.cpp
   MultiMeshForm.cpp
   NonlinearVariationalProblem.cpp
   NonlinearVariationalSolver.cpp
+  MixedNonlinearVariationalProblem.cpp
+  MixedNonlinearVariationalSolver.cpp
   PointSource.cpp
   PETScDMCollection.cpp
   solve.cpp

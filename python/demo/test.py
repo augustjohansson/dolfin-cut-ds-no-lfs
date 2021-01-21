@@ -43,8 +43,8 @@ def test_demos(mpiexec, num_proc, path, name):
         # Demos that don't work in parallel
         broken = ["demo_subdomains.py",
                   "demo_auto-adaptive-poisson.py",
-                  "demo_nonmatching-interpolation.py"
-                  'demo_adaptive-poisson,py',
+                  "demo_nonmatching-interpolation.py",
+                  'demo_adaptive-poisson.py',
                   'demo_auto-adaptive-navier-stokes.py',
                   'demo_eval.py',
                   'demo_extrapolation.py',
@@ -57,6 +57,8 @@ def test_demos(mpiexec, num_proc, path, name):
                   'demo_time-series.py',
                   'demo_poisson1D-in-2D.py',
                   'demo_coordinates.py',
+                  'demo_block-assembly-2D2D-nonlinear.py',
+                  'demo_block-assembly-3D1D.py',
         ]
         if name in broken:
             return

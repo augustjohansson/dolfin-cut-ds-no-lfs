@@ -20,9 +20,10 @@
 // Modified by Johan Hake, 2009
 // Modified by Joachim B. Haga, 2012
 // Modified by Mikael Mortensen, 2013
+// Modified by Cecile Daversin-Catty, 2018
 //
 // First added:  2007-04-10
-// Last changed: 2014-01-23
+// Last changed: 2018-05-29
 
 #include <cinttypes>
 #include <cmath>
@@ -309,23 +310,25 @@ void DirichletBC::zero(GenericMatrix& A) const
 //-----------------------------------------------------------------------------
 void DirichletBC::zero_columns(GenericMatrix& A,
                                GenericVector& b,
-                               double diag_val) const
+                               double diag_val,
+			       bool transpose) const
 {
   // Check arguments
-  check_arguments(&A, &b, NULL, 1);
+  check_arguments(&A, &b, NULL, !transpose);
 
   // A map to hold the mapping from boundary dofs to boundary values
   Map bv_map;
   get_boundary_values(bv_map);
 
   // Create lookup table of dofs
-  //const std::size_t nrows = A.size(0); // should be equal to b.size()
+  const std::size_t nrows = A.size(0); // should be equal to b.size()
   const std::size_t ncols = A.size(1); // should be equal to max possible dof+1
 
   std::pair<std::size_t, std::size_t> rows = A.local_range(0);
 
-  std::vector<char> is_bc_dof(ncols);
-  std::vector<double> bc_dof_val(ncols);
+  auto size = (transpose) ? nrows : ncols;
+  std::vector<char> is_bc_dof(size);
+  std::vector<double> bc_dof_val(size);
   for (Map::const_iterator bv = bv_map.begin(); bv != bv_map.end(); ++bv)
   {
     is_bc_dof[bv->first] = 1;
@@ -363,8 +366,11 @@ void DirichletBC::zero_columns(GenericMatrix& A,
         const std::size_t col = cols[j];
 
         // Skip columns that aren't BC, and entries that are zero
-        if (!is_bc_dof[col] || vals[j] == 0.0)
-          continue;
+	if ((!is_bc_dof[col] && !transpose) || vals[j] == 0.0)
+	  continue;
+
+	if ((!is_bc_dof[row] && transpose) || vals[j] == 0.0)
+	  continue;
 
         // We're going to change the row, so make room for it
         if (!row_changed)

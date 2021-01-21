@@ -35,6 +35,9 @@ using namespace dolfin;
 bool CollisionPredicates::collides(const MeshEntity& entity,
 				   const Point& point)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   // Intersection is only implemented for simplex meshes
   if (!entity.mesh().type().is_simplex())
   {
@@ -196,6 +199,9 @@ bool CollisionPredicates::collides_segment_point(const Point& p0,
                                                  const Point& point,
                                                  std::size_t gdim)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   switch (gdim)
   {
   case 1:
@@ -218,6 +224,9 @@ bool CollisionPredicates::collides_segment_segment(const Point& p0,
                                                    const Point& q1,
                                                    std::size_t gdim)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   switch (gdim)
   {
   case 1:
@@ -240,6 +249,9 @@ bool CollisionPredicates::collides_triangle_point(const Point& p0,
                                                   const Point& point,
                                                   std::size_t gdim)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   switch (gdim)
   {
   case 2:
@@ -261,6 +273,9 @@ bool CollisionPredicates::collides_triangle_segment(const Point& p0,
                                                     const Point& q1,
                                                     std::size_t gdim)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   switch (gdim)
   {
   case 2:
@@ -283,6 +298,9 @@ bool CollisionPredicates::collides_triangle_triangle(const Point& p0,
                                                      const Point& q2,
                                                      std::size_t gdim)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   switch (gdim)
   {
   case 2:
@@ -299,19 +317,19 @@ bool CollisionPredicates::collides_triangle_triangle(const Point& p0,
 
 
 
-    //--- Low-level collision detection predicates ---
+//--- Low-level collision detection predicates ---
 //------------------------------------------------------------------------------
 bool CollisionPredicates::collides_segment_point_1d(double p0,
-				      double p1,
-				      double point)
+                                                    double p1,
+                                                    double point)
 {
   // FIXME: Skip CGAL for now
   return _collides_segment_point_1d(p0, p1, point);
 }
 //------------------------------------------------------------------------------
 bool CollisionPredicates::collides_segment_point_2d(const Point& p0,
-				      const Point& p1,
-				      const Point& point)
+                                                    const Point& p1,
+                                                    const Point& point)
 {
   return CHECK_CGAL(_collides_segment_point_2d(p0, p1, point),
 		    cgal_collides_segment_point_2d(p0, p1, point));
@@ -463,6 +481,9 @@ bool CollisionPredicates::_collides_segment_point_1d(double p0,
                                                      double p1,
                                                      double point)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   if (p0 > p1)
     std::swap(p0, p1);
   return p0 <= point and point <= p1;
@@ -472,6 +493,9 @@ bool CollisionPredicates::_collides_segment_point_2d(const Point& p0,
                                                      const Point& p1,
                                                      const Point& point)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   const double orientation = orient2d(p0, p1, point);
 
   const Point dp = p1 - p0;
@@ -487,6 +511,9 @@ bool CollisionPredicates::_collides_segment_point_3d(const Point& p0,
                                                      const Point& p1,
                                                      const Point& point)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
 
   if (point == p0 or point == p1)
     return true;
@@ -530,6 +557,9 @@ bool CollisionPredicates::_collides_segment_segment_1d(double p0,
                                                        double q0,
                                                        double q1)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   // Get range
   const double a0 = std::min(p0, p1);
   const double b0 = std::max(p0, p1);
@@ -546,6 +576,9 @@ bool CollisionPredicates::_collides_segment_segment_2d(const Point& p0,
                                                        const Point& q0,
                                                        const Point& q1)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   // FIXME: Optimize by avoiding redundant calls to orient2d
 
   if (collides_segment_point_2d(p0, p1, q0))
@@ -570,6 +603,9 @@ bool CollisionPredicates::_collides_segment_segment_3d(const Point& p0,
                                                        const Point& q0,
                                                        const Point& q1)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   // Vertex collisions
   if (p0 == q0 || p0 == q1 || p1 == q0 || p1 == q1)
     return true;
@@ -644,6 +680,9 @@ bool CollisionPredicates::_collides_triangle_point_2d(const Point& p0,
                                                       const Point& p2,
                                                       const Point& point)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   const double ref = orient2d(p0, p1, p2);
 
   if (ref > 0.0)
@@ -677,6 +716,9 @@ bool CollisionPredicates::_collides_triangle_point_3d(const Point& p0,
                                                       const Point& p2,
                                                       const Point& point)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   if (p0 == point or p1 == point or p2 == point)
     return true;
 
@@ -699,6 +741,9 @@ bool CollisionPredicates::_collides_triangle_segment_2d(const Point& p0,
                                                         const Point& q0,
                                                         const Point& q1)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   // FIXME: Optimize by avoiding redundant calls to orient2d
 
   // Check if end points are in triangle
@@ -724,6 +769,9 @@ bool CollisionPredicates::_collides_triangle_segment_3d(const Point& r,
                                                         const Point& a,
                                                         const Point& b)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   // FIXME: Optimize by avoiding redundant calls to orient3d
 
   // Compute correspondic tetrahedra determinants
@@ -795,6 +843,9 @@ bool CollisionPredicates::_collides_triangle_triangle_2d(const Point& p0,
                                                          const Point& q1,
                                                          const Point& q2)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   // FIXME: Optimize by avoiding redundant calls to orient2d
 
   // Pack points as vectors
@@ -859,6 +910,9 @@ bool CollisionPredicates::_collides_triangle_triangle_3d(const Point& p0,
                                                          const Point& q1,
                                                          const Point& q2)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   // FIXME: Optimize by avoiding redundant calls to orient3d
 
   // Pack points as vectors
@@ -913,6 +967,9 @@ bool CollisionPredicates::_collides_tetrahedron_point_3d(const Point& p0,
                                                          const Point& p3,
                                                          const Point& point)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   const double ref = orient3d(p0, p1, p2, p3);
 
   if (ref > 0.0)
@@ -946,6 +1003,9 @@ bool CollisionPredicates::_collides_tetrahedron_segment_3d(const Point& p0,
                                                            const Point& q0,
                                                            const Point& q1)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   // FIXME: Optimize by avoiding redundant calls to orient3d
 
   // Segment vertex in tetrahedron collision
@@ -975,6 +1035,9 @@ bool CollisionPredicates::_collides_tetrahedron_triangle_3d(const Point& p0,
                                                             const Point& q1,
                                                             const Point& q2)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   // FIXME: Optimize by avoiding redundant calls to orient3d
 
   // Triangle vertex in tetrahedron collision
@@ -1007,6 +1070,9 @@ bool CollisionPredicates::_collides_tetrahedron_tetrahedron_3d(const Point& p0,
                                                                const Point& q2,
                                                                const Point& q3)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   // FIXME: Optimize by avoiding redundant calls to orient3d
 
   const std::array<Point, 4> tetp = {{p0, p1, p2, p3}};

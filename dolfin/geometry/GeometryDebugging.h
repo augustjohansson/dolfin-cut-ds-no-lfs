@@ -49,6 +49,9 @@ namespace dolfin
     static void print(const std::vector<Point>& simplex_0,
                       const std::vector<Point>& simplex_1);
 
+    /// Triangulation
+    static void print(const std::vector<std::vector<Point>>& t);
+
     /// Plot a point (print matplotlib code).
     /// Example usage: plot(p0)
     static void plot(const Point& point);

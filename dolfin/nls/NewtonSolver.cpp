@@ -18,9 +18,10 @@
 // Modified by Anders Logg 2005-2009
 // Modified by Martin Alnes 2008
 // Modified by Johan Hake 2010
+// Modified by Cecile Daversin-Catty 2018
 //
 // First added:  2005-10-23
-// Last changed: 2014-05-27
+// Last changed: 2020-01-24
 
 #include <cmath>
 #include <string>
@@ -30,8 +31,10 @@
 #include <dolfin/la/GenericLinearSolver.h>
 #include <dolfin/la/DefaultFactory.h>
 #include <dolfin/la/LinearSolver.h>
+#include <dolfin/la/PETScLUSolver.h>
 #include <dolfin/la/GenericMatrix.h>
 #include <dolfin/la/GenericVector.h>
+#include <dolfin/la/PETScNestMatrix.h>
 #include <dolfin/la/LUSolver.h>
 #include <dolfin/la/KrylovSolver.h>
 #include <dolfin/log/log.h>
@@ -129,6 +132,11 @@ NewtonSolver::solve(NonlinearProblem& nonlinear_problem,
   nonlinear_problem.form(*_matA, *_matP, *_b, x);
   nonlinear_problem.F(*_b, x);
 
+  // FIXME : Need to initialize _dx to guarantee it has the right type
+  // (needed when we have VECNEST type with mixed-domains)
+  _dx = _b->copy();
+  _dx->zero();
+
   // Check convergence
   bool newton_converged = false;
   if (convergence_criterion == "residual")
@@ -147,6 +155,9 @@ NewtonSolver::solve(NonlinearProblem& nonlinear_problem,
                  convergence_criterion.c_str());
   }
 
+  // Might need a copy of _matA (nest -> aij)
+  std::shared_ptr<GenericMatrix> _matAc;
+
   // Start iterations
   while (!newton_converged && _newton_iteration < maxiter)
   {
@@ -155,12 +166,21 @@ NewtonSolver::solve(NonlinearProblem& nonlinear_problem,
     nonlinear_problem.J_pc(*_matP, x);
 
     // Setup (linear) solver (including set operators)
-    solver_setup(_matA, _matP, nonlinear_problem, _newton_iteration);
+    if (as_type<PETScMatrix>(_matA)->is_nest())
+    {
+      log(TRACE, "NewtonSolver: setup matrix with MATAIJ type in krylov solver");
+      _matAc = _matA->copy();
+      as_type<PETScMatrix>(*_matAc).convert_to_aij();
+      solver_setup(_matAc, _matP, nonlinear_problem, _newton_iteration);
+    }
+    else
+      solver_setup(_matA, _matP, nonlinear_problem, _newton_iteration);
 
     // Perform linear solve and update total number of Krylov
     // iterations
     if (!_dx->empty())
       _dx->zero();
+
     _krylov_iterations += _solver->solve(*_dx, *_b);
 
     // Update solution
@@ -302,7 +322,7 @@ bool NewtonSolver::converged(const GenericVector& r,
 void NewtonSolver::solver_setup(std::shared_ptr<const GenericMatrix> A,
                                 std::shared_ptr<const GenericMatrix> P,
                                 const NonlinearProblem& nonlinear_problem,
-                                std::size_t interation)
+                                std::size_t iteration)
 {
   // Update Jacobian in linear solver (and preconditioner if given)
   if (_matP->empty())
@@ -319,7 +339,7 @@ void NewtonSolver::solver_setup(std::shared_ptr<const GenericMatrix> A,
 void NewtonSolver::update_solution(GenericVector& x, const GenericVector& dx,
                                    double relaxation_parameter,
                                    const NonlinearProblem& nonlinear_problem,
-                                   std::size_t interation)
+                                   std::size_t iteration)
 {
   if (relaxation_parameter == 1.0)
     x -= dx;

@@ -17,9 +17,10 @@
 //
 // Modified by Ola Skavhaug 2007.
 // Modified by Anders Logg 2008-2013
+// Modified by Cecile Daversin-Catty 2018
 //
 // First added:  2007-05-24
-// Last changed: 2014-04-25
+// Last changed: 2018-08-24
 
 #ifndef __SPARSITY_PATTERN_BUILDER_H
 #define __SPARSITY_PATTERN_BUILDER_H
@@ -54,6 +55,23 @@ namespace dolfin
                       bool diagonal,
                       bool init=true,
                       bool finalize=true);
+
+    /// Mixed-domains - Mixed-dimensional version
+    /// (Test and trial function can belong to different meshes)
+    /// Mesh is the integration mesh (associated with the form)
+    /// mesh_ids[0] is the mesh id associated with the test function
+    /// mesh_ids[1] is the mesh id associated with the trial function
+    static void build_mixed(SparsityPattern& sparsity_pattern,
+			    const Mesh& mesh,
+			    std::vector<std::size_t> mesh_ids,
+			    const std::vector<const GenericDofMap*> dofmaps,
+			    bool cells,
+			    bool interior_facets,
+			    bool exterior_facets,
+			    bool vertices,
+			    bool diagonal,
+			    bool init=true,
+			    bool finalize=true);
 
     /// Build sparsity pattern for assembly of given multimesh form
     static void

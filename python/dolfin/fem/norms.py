@@ -151,7 +151,11 @@ def norm(v, norm_type="L2", mesh=None):
         raise TypeError("Do not know how to compute norm of {}".format(str(v)))
 
     # Assemble value and return
-    return sqrt(assemble_func(M))
+    n2 = assemble_func(M)
+    if n2 < 0.0:
+        print("DEBUG norms.py abs", n2, norm_type.lower())
+    return sqrt(abs(n2))
+    #return sqrt(assemble_func(M))
 
 
 def errornorm(u, uh, norm_type="l2", degree_rise=3, mesh=None):

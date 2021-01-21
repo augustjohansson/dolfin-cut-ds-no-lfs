@@ -35,6 +35,7 @@
 #include <dolfin/fem/assemble_local.h>
 #include <dolfin/fem/Assembler.h>
 #include <dolfin/fem/MultiMeshAssembler.h>
+#include <dolfin/fem/MixedAssembler.h>
 #include <dolfin/fem/DirichletBC.h>
 #include <dolfin/fem/DiscreteOperators.h>
 #include <dolfin/fem/DofMap.h>
@@ -44,9 +45,13 @@
 #include <dolfin/fem/MultiMeshForm.h>
 #include <dolfin/fem/LinearVariationalProblem.h>
 #include <dolfin/fem/LinearVariationalSolver.h>
+#include <dolfin/fem/MixedLinearVariationalProblem.h>
+#include <dolfin/fem/MixedLinearVariationalSolver.h>
 #include <dolfin/fem/LocalSolver.h>
 #include <dolfin/fem/NonlinearVariationalProblem.h>
 #include <dolfin/fem/NonlinearVariationalSolver.h>
+#include <dolfin/fem/MixedNonlinearVariationalProblem.h>
+#include <dolfin/fem/MixedNonlinearVariationalSolver.h>
 #include <dolfin/fem/PETScDMCollection.h>
 #include <dolfin/fem/PointSource.h>
 #include <dolfin/fem/SparsityPatternBuilder.h>
@@ -66,6 +71,7 @@
 #include <dolfin/fem/MultiMeshDirichletBC.h>
 #include <dolfin/mesh/SubDomain.h>
 #include <dolfin/adaptivity/adapt.h>
+#include <dolfin/la/PETScNestMatrix.h>
 
 #include "casters.h"
 
@@ -293,6 +299,12 @@ namespace dolfin_wrappers
                   py::arg("dofmaps"), py::arg("cells"),
                   py::arg("interior_facets"), py::arg("exterior_facets"),
                   py::arg("vertices"), py::arg("diagonal"),
+                  py::arg("init")=true, py::arg("finalize")=true)
+      .def_static("build", &dolfin::SparsityPatternBuilder::build_mixed,
+                  py::arg("sparsity_pattern"), py::arg("mesh_ids"), py::arg("mesh"),
+                  py::arg("dofmaps"), py::arg("cells"),
+                  py::arg("interior_facets"), py::arg("exterior_facets"),
+                  py::arg("vertices"), py::arg("diagonal"),
                   py::arg("init")=true, py::arg("finalize")=true);
 
     // dolfin::DirichletBC
@@ -314,8 +326,9 @@ namespace dolfin_wrappers
       .def("homogenize", &dolfin::DirichletBC::homogenize)
       .def("method", &dolfin::DirichletBC::method)
       .def("zero", &dolfin::DirichletBC::zero)
+      .def("markers", &dolfin::DirichletBC::markers)
       .def("zero_columns", &dolfin::DirichletBC::zero_columns,
-           py::arg("A"), py::arg("b"), py::arg("diagonal_value")=0.0)
+           py::arg("A"), py::arg("b"), py::arg("diagonal_value")=0.0, py::arg("transpose")=false)
       .def("get_boundary_values", [](const dolfin::DirichletBC& instance)
            {
              dolfin::DirichletBC::Map map;
@@ -332,7 +345,7 @@ namespace dolfin_wrappers
            &dolfin::DirichletBC::apply)
       .def("apply", (void (dolfin::DirichletBC::*)(dolfin::GenericMatrix&, dolfin::GenericVector&, const dolfin::GenericVector&) const)
            &dolfin::DirichletBC::apply)
-      .def("user_subdomain", &dolfin::DirichletBC::user_sub_domain)
+      .def("user_sub_domain", &dolfin::DirichletBC::user_sub_domain)
       .def("set_value", &dolfin::DirichletBC::set_value)
       .def("set_value", [](dolfin::DirichletBC& self, py::object value)
            {
@@ -377,6 +390,12 @@ namespace dolfin_wrappers
            std::size_t, std::size_t, std::string>(),
            py::arg("V"), py::arg("g"), py::arg("sub_domains"),
            py::arg("sub_domain"), py::arg("part"), py::arg("method")="topological")
+      .def(py::init<std::shared_ptr<const dolfin::MultiMeshFunctionSpace>,
+           std::shared_ptr<const dolfin::GenericFunction>,
+           std::shared_ptr<const dolfin::SubDomain>, std::size_t, std::string, bool, bool>(),
+           py::arg("V"), py::arg("g"), py::arg("sub_domain"), py::arg("part"),
+           py::arg("method")="topological", py::arg("check_midpoint")=true,
+           py::arg("exclude_overlapped_boundaries")=true)
       .def("function_space", &dolfin::MultiMeshDirichletBC::function_space)
       .def("homogenize", &dolfin::MultiMeshDirichletBC::homogenize)
       .def("zero", &dolfin::MultiMeshDirichletBC::zero)
@@ -405,12 +424,22 @@ namespace dolfin_wrappers
       .def(py::init<>())
       .def("assemble", &dolfin::Assembler::assemble);
 
+    // dolfin::MixedAssembler
+    py::class_<dolfin::MixedAssembler, std::shared_ptr<dolfin::MixedAssembler>, dolfin::AssemblerBase>
+      (m, "MixedAssembler", "DOLFIN MixedAssembler object")
+      .def(py::init<>())
+      .def("assemble", &dolfin::MixedAssembler::assemble);
+
     // dolfin::SystemAssembler
     py::class_<dolfin::SystemAssembler, std::shared_ptr<dolfin::SystemAssembler>, dolfin::AssemblerBase>
       (m, "SystemAssembler", "DOLFIN SystemAssembler object")
       .def(py::init<std::shared_ptr<const dolfin::Form>, std::shared_ptr<const dolfin::Form>,
            std::vector<std::shared_ptr<const dolfin::DirichletBC>>>())
+      .def(py::init<std::vector<std::shared_ptr<const dolfin::Form>>, std::vector<std::shared_ptr<const dolfin::Form>>,
+           std::vector<std::vector<std::shared_ptr<const dolfin::DirichletBC>>>>())
       .def("assemble", (void (dolfin::SystemAssembler::*)(dolfin::GenericMatrix&, dolfin::GenericVector&))
+           &dolfin::SystemAssembler::assemble)
+      .def("assemble", (void (dolfin::SystemAssembler::*)(std::vector<std::shared_ptr<dolfin::GenericMatrix>>, std::vector<std::shared_ptr<dolfin::GenericVector>>))
            &dolfin::SystemAssembler::assemble)
       .def("assemble", (void (dolfin::SystemAssembler::*)(dolfin::GenericMatrix&)) &dolfin::SystemAssembler::assemble)
       .def("assemble", (void (dolfin::SystemAssembler::*)(dolfin::GenericVector&)) &dolfin::SystemAssembler::assemble)
@@ -433,9 +462,12 @@ namespace dolfin_wrappers
     // dolfin::Form
     py::class_<dolfin::Form, std::shared_ptr<dolfin::Form>>
       (m, "Form", "DOLFIN Form object")
-      .def(py::init<std::shared_ptr<const ufc::form>,
-                    std::vector<std::shared_ptr<const dolfin::FunctionSpace>>>())
       .def(py::init<std::size_t, std::size_t>())
+      .def(py::init<std::shared_ptr<const ufc::form>,
+	   std::vector<std::shared_ptr<const dolfin::FunctionSpace>>>())
+      .def(py::init<std::size_t, std::size_t>())
+      .def("function_spaces", &dolfin::Form::function_spaces, "Return function spaces for arguments")
+      .def("function_space", &dolfin::Form::function_space, "Return function space for i-th argument")
       .def("num_coefficients", &dolfin::Form::num_coefficients, "Return number of coefficients in form")
       .def("original_coefficient_position", &dolfin::Form::original_coefficient_position)
       .def("set_coefficient", (void (dolfin::Form::*)(std::size_t, std::shared_ptr<const dolfin::GenericFunction>))
@@ -549,7 +581,37 @@ namespace dolfin_wrappers
                std::shared_ptr<dolfin::LinearVariationalSolver>,
                dolfin::Variable>(m, "LinearVariationalSolver")
       .def(py::init<std::shared_ptr<dolfin::LinearVariationalProblem>>())
-      .def("solve", &dolfin::LinearVariationalSolver::solve);
+      .def("solve", &dolfin::LinearVariationalSolver::solve)
+      .def("default_parameters", &dolfin::LinearVariationalSolver::default_parameters);
+
+    // dolfin::MixedLinearVariationalProblem
+    py::class_<dolfin::MixedLinearVariationalProblem,
+               std::shared_ptr<dolfin::MixedLinearVariationalProblem>>
+      (m, "MixedLinearVariationalProblem")
+      .def(py::init<std::vector<std::vector<std::shared_ptr<const dolfin::Form>>>,
+           std::vector<std::vector<std::shared_ptr<const dolfin::Form>>>,
+           std::vector<std::shared_ptr<dolfin::Function>>,
+           std::vector<std::shared_ptr<const dolfin::DirichletBC>>>())
+      .def("bcs", (std::vector<std::shared_ptr<const dolfin::DirichletBC>>
+		   (dolfin::MixedLinearVariationalProblem::*)(int) const) &dolfin::MixedLinearVariationalProblem::bcs)
+      .def("bcs", (std::vector<std::vector<std::shared_ptr<const dolfin::DirichletBC>>>
+		   (dolfin::MixedLinearVariationalProblem::*)() const) &dolfin::MixedLinearVariationalProblem::bcs);
+
+    // dolfin::MixedLinearVariationalSolver
+    py::class_<dolfin::MixedLinearVariationalSolver,
+               std::shared_ptr<dolfin::MixedLinearVariationalSolver>,
+               dolfin::Variable>(m, "MixedLinearVariationalSolver")
+      .def(py::init<>())
+      .def(py::init<std::shared_ptr<dolfin::MixedLinearVariationalProblem>>())
+      .def("solve", (void (dolfin::MixedLinearVariationalSolver::*)())&dolfin::MixedLinearVariationalSolver::solve)
+      .def("solve", (void (dolfin::MixedLinearVariationalSolver::*)
+		     (std::tuple<std::vector<std::shared_ptr<dolfin::GenericMatrix>>,
+		      std::vector<std::shared_ptr<dolfin::GenericVector>>,
+		      std::vector<std::shared_ptr<dolfin::GenericVector>> >))&dolfin::MixedLinearVariationalSolver::solve)
+      .def("assemble_system", (std::tuple<std::vector<std::shared_ptr<dolfin::GenericMatrix>>,
+			       std::vector<std::shared_ptr<dolfin::GenericVector>>,
+			       std::vector<std::shared_ptr<dolfin::GenericVector>> >
+			       (dolfin::MixedLinearVariationalSolver::*)()) &dolfin::MixedLinearVariationalSolver::assemble_system);
 
     // dolfin::NonlinearVariationalProblem
     py::class_<dolfin::NonlinearVariationalProblem,
@@ -581,6 +643,26 @@ namespace dolfin_wrappers
       .def(py::init<std::shared_ptr<dolfin::NonlinearVariationalProblem>>())
       .def("solve", &dolfin::NonlinearVariationalSolver::solve)
       .def("default_parameters", &dolfin::NonlinearVariationalSolver::default_parameters);
+
+    // dolfin::MixedNonlinearVariationalProblem
+    py::class_<dolfin::MixedNonlinearVariationalProblem,
+               std::shared_ptr<dolfin::MixedNonlinearVariationalProblem>>
+      (m, "MixedNonlinearVariationalProblem")
+      .def(py::init<std::vector<std::vector<std::shared_ptr<const dolfin::Form>>>,
+           std::vector<std::shared_ptr<dolfin::Function>>,
+           std::vector<std::shared_ptr<const dolfin::DirichletBC>>,
+	   std::vector<std::vector<std::shared_ptr<const dolfin::Form>>>>())
+      .def("bcs", (std::vector<std::shared_ptr<const dolfin::DirichletBC>>
+		   (dolfin::MixedNonlinearVariationalProblem::*)(int) const) &dolfin::MixedNonlinearVariationalProblem::bcs)
+      .def("bcs", (std::vector<std::vector<std::shared_ptr<const dolfin::DirichletBC>>>
+		   (dolfin::MixedNonlinearVariationalProblem::*)() const) &dolfin::MixedNonlinearVariationalProblem::bcs);
+
+    // dolfin::MixedNonlinearVariationalSolver
+    py::class_<dolfin::MixedNonlinearVariationalSolver,
+               std::shared_ptr<dolfin::MixedNonlinearVariationalSolver>,
+               dolfin::Variable>(m, "MixedNonlinearVariationalSolver")
+      .def(py::init<std::shared_ptr<dolfin::MixedNonlinearVariationalProblem>>())
+      .def("solve", &dolfin::MixedNonlinearVariationalSolver::solve);
 
     // dolfin::LocalSolver
     py::class_<dolfin::LocalSolver, std::shared_ptr<dolfin::LocalSolver>>

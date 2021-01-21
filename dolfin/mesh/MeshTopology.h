@@ -28,6 +28,7 @@
 
 #include <dolfin/common/Variable.h>
 #include "MeshConnectivity.h"
+#include "MeshView.h"
 
 namespace dolfin
 {
@@ -42,6 +43,11 @@ namespace dolfin
   /// A mesh entity e may be identified globally as a pair e = (dim,
   /// i), where dim is the topological dimension and i is the index of
   /// the entity within that topological dimension.
+
+
+  // NOTE : Forward declaration not sufficient to use the mapping() function
+  // Need to include mesh view to use auto mapping = mesh.topology().mapping()
+  // class MeshView;
 
   class MeshTopology : public Variable
   {
@@ -172,7 +178,19 @@ namespace dolfin
       std::pair<std::vector<std::size_t>,
       std::vector<std::vector<std::size_t>>>> coloring;
 
+    // Mappings to other Mesh objects, if any
+    std::map<unsigned, std::shared_ptr<MeshView>> mapping() const
+    { return _mapping; }
+
+    void add_mapping(const std::pair<unsigned, std::shared_ptr<MeshView>> _pair)
+    { _mapping.emplace(_pair); }
+
   private:
+
+    friend class MeshView;
+
+    // Mappings to other Mesh objects, if any
+    std::map<unsigned, std::shared_ptr<MeshView>> _mapping;
 
     // Number of mesh entities for each topological dimension
     std::vector<unsigned int> num_entities;

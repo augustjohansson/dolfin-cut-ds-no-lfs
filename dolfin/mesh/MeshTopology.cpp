@@ -23,6 +23,7 @@
 #include <dolfin/log/log.h>
 #include <dolfin/common/utils.h>
 #include "MeshConnectivity.h"
+#include "MeshView.h"
 #include "MeshTopology.h"
 
 using namespace dolfin;
@@ -35,7 +36,9 @@ MeshTopology::MeshTopology() : Variable("topology", "mesh topology")
 //-----------------------------------------------------------------------------
 MeshTopology::MeshTopology(const MeshTopology& topology)
   : Variable("topology", "mesh topology"),
-    coloring(topology.coloring), num_entities(topology.num_entities),
+    coloring(topology.coloring),
+    _mapping(topology._mapping),
+    num_entities(topology.num_entities),
     ghost_offset_index(topology.ghost_offset_index),
     global_num_entities(topology.global_num_entities),
     _global_indices(topology._global_indices),
@@ -54,6 +57,7 @@ MeshTopology& MeshTopology::operator= (const MeshTopology& topology)
 {
   // Public data
   coloring = topology.coloring;
+  _mapping = topology._mapping;
 
   // Private data
   num_entities = topology.num_entities;
@@ -103,6 +107,7 @@ void MeshTopology::clear()
 {
   // Clear data
   coloring.clear();
+  _mapping.clear();
   num_entities.clear();
   global_num_entities.clear();
   ghost_offset_index.clear();

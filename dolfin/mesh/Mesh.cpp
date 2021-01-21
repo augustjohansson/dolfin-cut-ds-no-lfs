@@ -24,9 +24,10 @@
 // Modified by Marie E. Rognes 2012
 // Modified by Mikael Mortensen 2012
 // Modified by Jan Blechta 2013
+// Modified by Cecile Daversin-Catty 2018
 //
 // First added:  2006-05-09
-// Last changed: 2016-05-05
+// Last changed: 2019-12-04
 
 #include <dolfin/ale/ALE.h>
 #include <dolfin/common/Array.h>
@@ -146,7 +147,9 @@ std::size_t Mesh::init(std::size_t dim) const
   // Skip if mesh is empty
   if (num_cells() == 0)
   {
-    warning("Mesh is empty, unable to create entities of dimension %d.", dim);
+    //Do not display empty mesh warning if we are dealing with submeshes
+    if(_topology.mapping().empty())
+      warning("Mesh is empty, unable to create entities of dimension %d.", dim);
     return 0;
   }
 
@@ -188,7 +191,9 @@ void Mesh::init(std::size_t d0, std::size_t d1) const
   // Skip if mesh is empty
   if (num_cells() == 0)
   {
-    warning("Mesh is empty, unable to create connectivity %d --> %d.", d0, d1);
+    //Do not display empty mesh warning if we are dealing with submeshes
+    if(_topology.mapping().empty())
+      warning("Mesh is empty, unable to create connectivity %d --> %d.", d0, d1);
     return;
   }
 
@@ -483,3 +488,95 @@ std::string Mesh::ghost_mode() const
   return _ghost_mode;
 }
 //-----------------------------------------------------------------------------
+
+void Mesh::build_mapping(std::shared_ptr<const Mesh> other) const
+{
+  // Find a parent mesh shared by the two meshes
+  std::vector<unsigned> current_keys, other_keys, common_keys;
+  for(auto mapping : this->_topology.mapping())
+    current_keys.push_back(mapping.first);
+  for(auto mapping : other->_topology.mapping())
+    other_keys.push_back(mapping.first);
+  std::set_intersection(current_keys.begin(),current_keys.end(),other_keys.begin(),other_keys.end(),back_inserter(common_keys));
+
+  if (common_keys.size() == 0)
+    throw std::logic_error("Cannot find common parent mesh");
+  unsigned parent_id = common_keys[0];
+
+  // NOTE : This function is only used in MixedAssembler
+  // for now, and needs only the cell_map to be filled.
+  // We might need to fill the corresponding vertex_map
+  // at some point.
+  std::vector<std::size_t> current_cell_map = this->topology().mapping()[parent_id]->cell_map();
+  std::vector<std::size_t> other_cell_map = other->topology().mapping()[parent_id]->cell_map();
+  std::vector<std::size_t> new_vertex_map;
+  std::vector<std::size_t> new_cell_map(current_cell_map.size());
+
+  std::vector<std::size_t>::iterator found;
+  // Build the new mapping current <-> other from the common parent (cell_map only)
+  for(std::size_t i=0; i<new_cell_map.size(); ++i)
+  {
+    bool new_idx_found = false;
+    // Co-dimension 0
+    if(this->topology().dim() == other->topology().dim())
+    {
+      found = std::find(other_cell_map.begin(), other_cell_map.end(), current_cell_map[i]);
+      if(found != other_cell_map.end())
+      {
+	new_idx_found = true;
+	new_cell_map[i] = found - other_cell_map.begin();
+      }
+    }
+    // Co-dimension 1
+    else if(this->topology().dim() == other->topology().dim() - 1)
+    {
+      // current_cell_map[i] is the index of a facet in the parent mesh.
+      // We need to find the entities of dimension dim(other) = dim(current) + 1
+      // related to this facet.
+
+      // mesh_facet is the facet of the parent mesh corresponding to current_cell_map[i]
+      Facet mesh_facet(*(this->topology().mapping()[parent_id]->mesh()), current_cell_map[i]);
+      auto D = other->topology().dim();
+      this->topology().mapping()[parent_id]->mesh()->init(D);
+      this->topology().mapping()[parent_id]->mesh()->init(D - 1, D);
+      other->init(this->topology().dim());
+
+      // Find a cell in <other> owning mesh_facet
+      for(std::size_t j=0; j<mesh_facet.num_entities(D); j++)
+      {
+	Cell mesh_cell(*(this->topology().mapping()[parent_id]->mesh()), mesh_facet.entities(other->topology().dim())[j]);
+        found = std::find(other_cell_map.begin(), other_cell_map.end(), mesh_cell.index());
+	if(found != other_cell_map.end())
+	{
+	  auto position = found - other_cell_map.begin();
+	  Cell other_mesh_cell(*(other), position);
+	  // Find which facet of this cell is the one we are looking for
+	  for(std::size_t k=0; k<other_mesh_cell.num_entities(this->topology().dim()); k++)
+	  {
+	    // NOTE : Comparison based on midpoint coordinates
+	    // Is it still ok with very small mesh size ?
+	    Facet other_mesh_facet(*(other), other_mesh_cell.entities(this->topology().dim())[k]);
+	    if(other_mesh_facet.midpoint() == mesh_facet.midpoint())
+	    {
+	      new_idx_found = true;
+	      new_cell_map[i] = other_mesh_cell.entities(this->topology().dim())[k];
+	      break;
+	    }
+	  }
+	  break;
+	}
+      }
+    }
+    else
+     dolfin_error("Mesh.cpp",
+                  "build_mapping",
+                  "The dimension of the mesh given as parameter (%d) cannot be lower than the dimension of the current mesh (%d)",
+                  other->topology().dim(), this->topology().dim());
+
+    if(!new_idx_found)
+      std::cout << "Error in building the mapping ("
+		<< this->id() << ", " << other->id() << ") :"
+		<< "Index not found." << std::endl;
+  }
+  this->_topology.add_mapping(std::make_pair(other->id(), std::make_shared<MeshView>(other, new_vertex_map, new_cell_map)));
+}

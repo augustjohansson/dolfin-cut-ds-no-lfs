@@ -8,7 +8,7 @@ cmake_minimum_required(VERSION 3.5)
 
 project(DOLFIN)
 set(DOLFIN_VERSION_RELEASE 0)
-set(DOLFIN_VERSION_MAJOR "2018")
+set(DOLFIN_VERSION_MAJOR "2019")
 set(DOLFIN_VERSION_MINOR "2")
 set(DOLFIN_VERSION_MICRO "0")
 set(DOLFIN_VERSION "${DOLFIN_VERSION_MAJOR}.${DOLFIN_VERSION_MINOR}.${DOLFIN_VERSION_MICRO}")
@@ -88,6 +88,10 @@ option(DOLFIN_ENABLE_DOCS "Enable generation of documentation." ON)
 option(DOLFIN_SKIP_BUILD_TESTS "Skip build tests for testing usability of dependency packages." OFF)
 option(DOLFIN_WITH_LIBRARY_VERSION "Build with library version information." ON)
 option(DOLFIN_ENABLE_GEOMETRY_DEBUGGING "Enable geometry debugging (developers only; requires libcgal-dev and libcgal-qt5-dev)." OFF)
+#option(DOLFIN_GEOMETRY_PRINT "print debug info." ON)
+# add_definitions(-DDOLFIN_GEOMETRY_PRINT)
+# add_definitions(-DDOLFIN_MULTIMESH_PRINT)
+# add_definitions(-DDOLFIN_GEOMETRY_MEMOIZATION)
 
 add_feature_info(BUILD_SHARED_LIBS BUILD_SHARED_LIBS "Build DOLFIN with shared libraries.")
 add_feature_info(CMAKE_USE_RELATIVE_PATHS CMAKE_USE_RELATIVE_PATHS "Use relative paths in makefiles and projects.")
@@ -99,6 +103,8 @@ add_feature_info(DOLFIN_ENABLE_DOCS DOLFIN_ENABLE_DOCS "Enable generation of doc
 add_feature_info(DOLFIN_SKIP_BUILD_TESTS DOLFIN_SKIP_BUILD_TESTS "Skip build tests for testing usability of dependency packages.")
 add_feature_info(DOLFIN_DEPRECATION_ERROR DOLFIN_DEPRECATION_ERROR "Turn deprecation warnings into errors.")
 add_feature_info(DOLFIN_ENABLE_GEOMETRY_DEBUGGING DOLFIN_ENABLE_GEOMETRY_DEBUGGING "Enable geometry debugging.")
+add_feature_info(DOLFIN_GEOMETRY_PRINT DOLFIN_GEOMETRY_PRINT "Print debug info.")
+
 
 # Add shared library paths so shared libs in non-system paths are found
 option(CMAKE_INSTALL_RPATH_USE_LINK_PATH "Add paths to linker search and installed rpath." ON)
@@ -151,9 +157,11 @@ endforeach()
 
 # Default build type (can be overridden by user)
 if (NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING
+  set(CMAKE_BUILD_TYPE "Debug" CACHE STRING
     "Choose the type of build, options are: Debug Developer MinSizeRel Release RelWithDebInfo." FORCE)
 endif()
+set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING
+    "Choose the type of build, options are: Debug Developer MinSizeRel Release RelWithDebInfo." FORCE)
 
 # Check for some compiler flags
 include(CheckCXXCompilerFlag)

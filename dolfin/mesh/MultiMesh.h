@@ -50,7 +50,7 @@ namespace dolfin
   class MultiMesh : public Variable
   {
   public:
-
+    
     /// Structure storing a quadrature rule
     typedef std::pair<std::vector<double>, std::vector<double> > quadrature_rule;
 
@@ -294,6 +294,13 @@ namespace dolfin
     quadrature_rules_interface(std::size_t part,
 			       unsigned int cell_index) const;
 
+    /// Exterior cut facets quadrature rules
+    const std::map<unsigned int, MultiMesh::quadrature_rule> &
+    quadrature_rules_exterior_cut_facets(std::size_t part) const;
+  
+    const MultiMesh::quadrature_rule
+    quadrature_rules_exterior_cut_facets(std::size_t part,
+                                         unsigned int cell_index) const;
 
     /// Return facet normals for the interface on the given part
     ///
@@ -313,8 +320,12 @@ namespace dolfin
     ///         which should be equal to the number of quadrature
     ///         points multiplied by the geometric dimension. Puh!
     const std::map<unsigned int, std::vector<std::vector<double> > >&
-    facet_normals(std::size_t part) const;
+    facet_normals_interface(std::size_t part) const;
 
+    const std::map<unsigned int, std::vector<double>>&
+    facet_normals_exterior_cut_facets(std::size_t part) const;
+
+    
     /// Return the bounding box tree for the mesh of the given part
     ///
     /// *Arguments*
@@ -388,11 +399,30 @@ namespace dolfin
     /// point inside the hole is known.
     void auto_cover(std::size_t p, const Point& point);
 
+
+    // Build boundary meshes (now public)
+    void _build_boundary_meshes();
+
+    // Build bounding box trees (now public)
+    void _build_bounding_box_trees();
+
+    // Build collision maps (now public)
+    void _build_collision_maps();
+    //void _build_collision_maps_same_topology();
+    //void _build_collision_maps_different_topology();
+
+    // Build quadrature rules and normals for the interface (now public)
+    void _build_quadrature_rules_interface(std::size_t quadrature_order);
+
+    // Get faces that need face stabilization on each part. Return
+    // structure must be useful for custom assembler.
+    std::vector<std::size_t> ghost_penalty_faces(const std::size_t part) const;
+    
   private:
 
     // Flag for whether multimesh has been built
     bool _is_built;
-
+    
     // List of meshes
     std::vector<std::shared_ptr<const Mesh> > _meshes;
 
@@ -494,9 +524,14 @@ namespace dolfin
     std::vector<std::map<unsigned int, std::vector<quadrature_rule> > >
     _quadrature_rules_interface;
 
+    // Quadrature rules for exterior cut facets
+    std::vector<std::map<unsigned int, quadrature_rule>>
+    _quadrature_rules_exterior_cut_facets;
+
+
     // Facet normals for interface. Access data by
     //
-    //     n = _facet_normals_interface[i][j][k][
+    //     n = _facet_normals_interface[i][j][k]
     //
     // where
     //
@@ -506,28 +541,29 @@ namespace dolfin
     //     j = the cell number (local cell index)
     //     k = the collision number (in the list of cutting cells)
     std::vector<std::map<unsigned int, std::vector<std::vector<double> > > >
-    _facet_normals;
+    _facet_normals_interface;
 
-    // Build boundary meshes
-    void _build_boundary_meshes();
+    // Facet normals for cut exterior facets (numbering matches _quadrature_rules_exterior_cut_facets)
+    std::vector<std::map<unsigned int, std::vector<double>>> _facet_normals_exterior_cut_facets;
 
-    // Build bounding box trees
-    void _build_bounding_box_trees();
+    // Faces where we need to apply ghost penalty
+    std::vector<std::vector<std::size_t>> _ghost_penalty_faces;
 
-    // Build collision maps
-    void _build_collision_maps();
-    //void _build_collision_maps_same_topology();
-    //void _build_collision_maps_different_topology();
+    
 
     // Build quadrature rules for the cut cells
     void _build_quadrature_rules_cut_cells(std::size_t quadrature_order);
 
     // Build quadrature rules for the overlap
     void _build_quadrature_rules_overlap(std::size_t quadrature_order);
+    
+    // Build quadrature rules for the exterior cut facets
+    void _build_quadrature_rules_exterior_cut_facets(std::size_t quadrature_order);
 
-    // Build quadrature rules and normals for the interface
-    void _build_quadrature_rules_interface(std::size_t quadrature_order);
-
+    // Build ghost penalty faces
+    void _build_ghost_penalty_faces();
+    
+    
     // Help function to determine if interface intersection is
     // (exactly) overlapped by a cutting cell
     bool _is_overlapped_interface(std::vector<Point> simplex,
@@ -566,7 +602,9 @@ namespace dolfin
        const std::vector<std::pair<std::size_t, Polyhedron> >& initial_polyhedra,
        std::size_t tdim,
        std::size_t gdim,
-       std::size_t quadrature_order) const;
+       std::size_t quadrature_order,
+       const std::vector<std::vector<Point>>* const initial_polyhedra_normals=0,
+       std::vector<Point>* normals=0) const;
 
     // Inclusion-exclusion for interface
     void _inclusion_exclusion_interface
@@ -592,6 +630,9 @@ namespace dolfin
     // tolerance
     static void remove_quadrature_rule(quadrature_rule& qr,
 				       double tolerance);
+
+    // Sort qr
+    static void sort_qr(std::vector<quadrature_rule>& qrs);
   };
 
 

@@ -25,7 +25,7 @@ from ufl.classes import ComponentTensor, Sum, Product, Division
 from ufl.utils.indexflattening import shape_to_strides, flatten_multiindex
 import dolfin.cpp as cpp
 import dolfin.la as la
-from dolfin.function.functionspace import FunctionSpace
+from dolfin.function.functionspace import FunctionSpace, MixedFunctionSpace
 from dolfin.function.expression import Expression
 from dolfin.function.constant import Constant
 
@@ -182,6 +182,10 @@ class Function(ufl.Coefficient):
     def __init__(self, *args, **kwargs):
         """Initialize Function."""
 
+        # For MixedFunctionSpace use
+        self._functions = None
+        self._part = None
+
         if isinstance(args[0], Function):
             other = args[0]
             if len(args) == 1:
@@ -222,6 +226,10 @@ class Function(ufl.Coefficient):
                 elif isinstance(args[1], str):
                     # Read from xml filename in string
                     self._cpp_object = cpp.function.Function(V._cpp_object, args[1])
+                elif isinstance(args[1], int):
+                    # Specify the part associated with the Function (mixed-domains)
+                    self._cpp_object = cpp.function.Function(V._cpp_object)
+                    self._part = args[1]
                 else:
                     raise RuntimeError("Don't know what to do with ", type(args[1]))
             else:
@@ -229,13 +237,23 @@ class Function(ufl.Coefficient):
 
             # Initialize the ufl.FunctionSpace
             ufl.Coefficient.__init__(self, V.ufl_function_space(), count=self._cpp_object.id())
-
+        elif isinstance(args[0], MixedFunctionSpace):
+            V = args[0]
+            self._functions = [Function(s, i) for i, s in enumerate(V.sub_spaces())]
         else:
             raise TypeError("Expected a FunctionSpace or a Function as argument 1")
 
         # Set name as given or automatic
-        name = kwargs.get("name") or "f_%d" % self.count()
-        self.rename(name, "a Function")
+        if isinstance(args[0], MixedFunctionSpace):
+            for i in range(len(self._functions)):
+                name = kwargs.get("name") or "f_%d" % self._functions[i].count()
+                self._functions[i].rename("%s_%d" % (name, i), "a Function")
+        else:
+            name = kwargs.get("name") or "f_%d" % self.count()
+            self.rename(name, "a Function")
+
+    def part(self):
+        return self._part
 
     def function_space(self):
         "Return the FunctionSpace"
@@ -480,24 +498,23 @@ class Function(ufl.Coefficient):
     def cpp_object(self):
         return self._cpp_object
 
-    def restrict(self, w, element, cell, coordinate_dofs, ufc_cell):
+    def restrict(self, element, cell):
         """
-        Restrict function to local cell (compute expansion coefficients w)
+        Returns expansion coefficients of function restricted to local cell.
 
         *Arguments*
-             w : list(double)
-                 Expansion coefficients.
-             element : FiniteElement
+             element : cpp.fem.FiniteElement
                  The element.
-             dolfin_cell : Cell
+             cell : Cell
                  The cell.
-             coordinate_dofs : list(double)
-                 The coordinates.
-             ufc_cell : ufc::cell.
-                 The ufc::cell.
-
         """
-        self._cpp_object.restrict(w, element, cell, coordinate_dofs, ufc_cell)
+        return self._cpp_object.restrict(element, cell)
+
+    def num_sub_spaces(self):
+        if self._functions is not None:
+            return len(self._functions)
+        else:
+            return self.function_space().num_sub_spaces()
 
     def sub(self, i, deepcopy=False):
         """
@@ -513,7 +530,14 @@ class Function(ufl.Coefficient):
         """
         if not isinstance(i, int):
             raise TypeError("expects an 'int' as first argument")
-        num_sub_spaces = self.function_space().num_sub_spaces()
+
+        if self._functions is not None:
+            if deepcopy:
+                return self._functions[i].copy(True)
+            else:
+                return self._functions[i]
+
+        num_sub_spaces = self.num_sub_spaces()
         if num_sub_spaces == 1:
             raise RuntimeError("No subfunctions to extract")
         if not i < num_sub_spaces:
@@ -541,7 +565,7 @@ class Function(ufl.Coefficient):
 
         """
 
-        num_sub_spaces = self.function_space().num_sub_spaces()
+        num_sub_spaces = self.num_sub_spaces()
         if num_sub_spaces == 1:
             raise RuntimeError("No subfunctions to extract")
         return tuple(self.sub(i, deepcopy) for i in range(num_sub_spaces))

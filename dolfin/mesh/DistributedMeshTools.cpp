@@ -16,9 +16,10 @@
 // along with DOLFIN. If not, see <http://www.gnu.org/licenses/>.
 //
 // Modified by Anders Logg 2011
+// Modified by Cecile Daversin-Catty  2019
 //
 // First added:  2011-09-17
-// Last changed: 2014-07-02
+// Last changed: 2019-02-12
 
 #include <boost/multi_array.hpp>
 
@@ -1141,7 +1142,11 @@ void DistributedMeshTools::reorder_values_by_global_indices(const Mesh& mesh,
 
   const std::size_t tdim = mesh.topology().dim();
   std::set<unsigned int> non_local_vertices;
-  if (mesh.topology().size(tdim) == mesh.topology().ghost_offset(tdim))
+  // NOTE : Disable exclusion of shared entities when using a Mesh built from MeshView
+  // The additional shared vertices which are not part of a cell are excluded while they
+  // shoudn't be - cause problems when writing IO files
+  bool mesh_view = !mesh.topology().mapping().empty();
+  if (mesh.topology().size(tdim) == mesh.topology().ghost_offset(tdim) && !mesh_view)
   {
     // No ghost cells - exclude shared entities which are on lower
     // rank processes
@@ -1205,9 +1210,11 @@ void DistributedMeshTools::reorder_values_by_global_indices(MPI_Comm mpi_comm,
 
   // Calculate size of overall global vector by finding max index value
   // anywhere
-  const std::size_t global_vector_size
-    = MPI::max(mpi_comm, *std::max_element(global_indices.begin(),
-                                           global_indices.end())) + 1;
+  std::size_t max_element = 0;
+  // NOTE : If mesh is empty on a process (MeshView), global_indices can be empty
+  if(global_indices.size() > 0)
+    max_element = *std::max_element(global_indices.begin(), global_indices.end());
+  const std::size_t global_vector_size = MPI::max(mpi_comm, max_element) + 1;
 
   // Send unwanted values off process
   const std::size_t mpi_size = MPI::size(mpi_comm);

@@ -24,6 +24,7 @@
 // Modified by Marie E. Rognes 2012
 // Modified by Mikael Mortensen 2012
 // Modified by Jan Blechta 2013
+// Modified by Cecile Daversin-Catty 2018
 
 #ifndef __MESH_H
 #define __MESH_H
@@ -507,6 +508,10 @@ namespace dolfin
     // Friend in fem_utils.h
     friend Mesh create_mesh(Function& coordinates);
 
+    /// Add new mapping to mesh topology
+    /// Used in mixed-domains models (MeshView)
+    void build_mapping(std::shared_ptr<const Mesh> other) const;
+
   private:
 
     // Friends
@@ -515,7 +520,7 @@ namespace dolfin
     friend class MeshPartitioning;
 
     // Mesh topology
-    MeshTopology _topology;
+    mutable MeshTopology _topology;
 
     // Mesh geometry
     MeshGeometry _geometry;
