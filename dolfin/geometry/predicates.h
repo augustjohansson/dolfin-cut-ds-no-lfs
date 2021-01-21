@@ -12,6 +12,11 @@
 #ifndef __PREDICATES_H
 #define __PREDICATES_H
 
+#include <map>
+#include <tuple>
+#include <map>
+#include "Point.h"
+
 namespace dolfin
 {
 
@@ -38,6 +43,10 @@ namespace dolfin
 
   /// Convenience function using dolfin::Point
   double orient3d(const Point& a, const Point& b, const Point& c, const Point& d);
+
+  // Memoized version 
+  static std::map<std::tuple<Point, Point, Point, Point>, double> hash_o3d;
+  double memoized_orient3d(const Point& a, const Point& b, const Point& c, const Point& d);
 
   /// Class used for automatic initialization of tolerances at startup.
   /// A global instance is defined inside predicates.cpp to ensure that

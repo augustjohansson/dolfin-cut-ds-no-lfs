@@ -19,6 +19,7 @@
 // Last changed: 2018-02-09
 
 #include <algorithm>
+#include <numeric>
 #include <tuple>
 #include <set>
 #include "predicates.h"
@@ -28,6 +29,10 @@
 #include "IntersectionConstruction.h"
 #include "ConvexTriangulation.h"
 #include "CGALExactArithmetic.h"
+
+//#ifdef DOLFIN_GEOMETRY_PRINT
+#include "GeometryDebugging.h"
+//#endif
 
 using namespace dolfin;
 
@@ -42,6 +47,10 @@ namespace
 		double tol)
   {
     std::vector<Point> points;
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+  GeometryDebugging::print(input_points);
+#endif
 
     for (std::size_t i = 0; i < input_points.size(); ++i)
     {
@@ -66,6 +75,10 @@ namespace
       if (unique)
 	points.push_back(input_points[i]);
     }
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+  GeometryDebugging::print(points);
+#endif
 
     return points;
   }
@@ -82,9 +95,30 @@ namespace
   std::vector<std::pair<std::size_t, std::size_t>>
   compute_convex_hull_planar(const std::vector<Point>& points)
   {
-    // FIXME: Ensure that 0, 1, 2 are not colinear
-    Point normal = GeometryTools::cross_product(points[0], points[1], points[2]);
-    normal /= normal.norm();
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
+    // Try to compute normal
+    Point normal;
+    bool found = false;
+    for (std::size_t i = 0; i < points.size() and !found; ++i)
+    {
+      for (std::size_t j = i+1; j < points.size() and !found; ++j)
+      {
+	for (std::size_t k = j+1; k < points.size() and !found; ++k)
+	{
+	  normal = GeometryTools::cross_product(points[0], points[1], points[2]);
+	  const double length = normal.norm();
+	  if (length > 0.0)
+	  {
+	    normal /= length;
+	    found = true;
+	  }
+	}
+      }
+    }
+
+    dolfin_assert(found);
 
     std::vector<std::pair<std::size_t, std::size_t>> edges;
 
@@ -98,7 +132,7 @@ namespace
         const Point r = points[i]+normal;
 
         // search for the first point which is not in the
-        // i, j, p plane to determine sign of orietation
+        // i, j, p plane to determine sign of orientation
         double edge_orientation = 0;
         {
           std::size_t a = 0;
@@ -126,7 +160,7 @@ namespace
                                                 r,
                                                 points[p]);
 
-	    if (orientation == 0)
+	    if (orientation == 0.0)
 	    {
 	      colinear.push_back(p);
 	    }
@@ -170,14 +204,52 @@ namespace
 
     return edges;
   }
-}
 
+  //-----------------------------------------------------------------------------
+  std::vector<std::pair<double, std::size_t>>
+  graham_scan_2d(const std::vector<Point>& points)
+  {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
+    // Sometimes we can get an extra point on an edge: a-----c--b. This
+    // point c may cause problems for the graham scan. To avoid this,
+    // use an extra center point.  Use this center point and point no 0
+    // as reference for the angle calculation
+    Point pointscenter = points[0];
+    for (std::size_t m = 1; m < points.size(); ++m)
+      pointscenter += points[m];
+    pointscenter /= points.size();
+
+    // Reference
+    const Point ref = points[0] - pointscenter;
+
+    // Calculate and store angles
+    std::vector<std::pair<double, std::size_t>> order;
+    for (std::size_t m = 1; m < points.size(); ++m)
+    {
+      const double A = orient2d(pointscenter, points[0], points[m]);
+      const Point s = points[m] - pointscenter;
+      double alpha = std::atan2(A, s.dot(ref));
+      if (alpha < 0)
+	alpha += 2.0*DOLFIN_PI;
+      order.emplace_back(alpha, m);
+    }
+
+    // Sort angles
+    std::sort(order.begin(), order.end());
+    return order;
+  }
+} // end empty namespace
 //------------------------------------------------------------------------------
 std::vector<std::vector<Point>>
 ConvexTriangulation::triangulate(const std::vector<Point>& p,
                                  std::size_t gdim,
                                  std::size_t tdim)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << ' '<<gdim<<' '<<tdim<<'\n';
+#endif
   if (p.empty())
     return std::vector<std::vector<Point>>();
 
@@ -188,6 +260,10 @@ ConvexTriangulation::triangulate(const std::vector<Point>& p,
   else if (tdim == 2 && gdim == 2)
   {
     return triangulate_graham_scan_2d(p);
+  }
+  else if (tdim == 2 && gdim == 3)
+  {
+    return triangulate_graham_scan_2d_3d(p);
   }
   else if (tdim == 3 && gdim == 3)
   {
@@ -202,9 +278,19 @@ ConvexTriangulation::triangulate(const std::vector<Point>& p,
 }
 //-----------------------------------------------------------------------------
 std::vector<std::vector<Point>>
+ConvexTriangulation::triangulate_1d(const std::vector<Point>& p,
+				    std::size_t gdim)
+{
+  return _triangulate_1d(p, gdim);
+}
+//-----------------------------------------------------------------------------
+std::vector<std::vector<Point>>
 ConvexTriangulation::_triangulate_1d(const std::vector<Point>& p,
 				     std::size_t gdim)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+    std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   // A convex polyhedron of topological dimension 1 can not have more
   // than two points. If more, they must be collinear (more or
   // less). This can happen due to tolerances in
@@ -239,14 +325,19 @@ ConvexTriangulation::_triangulate_1d(const std::vector<Point>& p,
     for (std::size_t i = 2; i < unique_p.size(); ++i)
     {
       const double o = orient2d(unique_p[0], unique_p[1], unique_p[i]);
-      if (std::abs(o) > DOLFIN_EPS_LARGE)
+      if (std::abs(o) > DOLFIN_EPS)
       {
 	collinear = false;
 	break;
       }
     }
 
-    dolfin_assert(collinear);
+    if (!collinear)
+    {
+      dolfin_error("ConvexTriangulation.cpp",
+		   "triangulate topological 1d",
+		   "A convex polyhedron of topological dimension 1 can not have more than 2 points unless they are collinear.");
+    }
 
     // Return extremal
     const Point v = unique_p[1] - unique_p[0];
@@ -262,65 +353,52 @@ ConvexTriangulation::_triangulate_1d(const std::vector<Point>& p,
     return {{ unique_p[order.front().second],
 	  unique_p[order.back().second] }};
   }
-
 }
+//------------------------------------------------------------------------------
+std::vector<std::vector<Point>>
+ConvexTriangulation::triangulate_graham_scan_2d(const std::vector<Point>& input_points)
+{
+  const std::vector<std::vector<Point>> triangulation
+    = _triangulate_graham_scan_2d_3d(input_points);
 
+  return triangulation;
+}
 //------------------------------------------------------------------------------
 std::vector<std::vector<Point>>
 ConvexTriangulation::_triangulate_graham_scan_2d(const std::vector<Point>& input_points)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   dolfin_assert(GeometryPredicates::is_finite(input_points));
-
-  // Make sure the input points are unique
   const std::size_t tdim = 2;
   const std::size_t gdim = 2;
+
+  // Make sure the input points are unique. We assume this has
+  // negligble effect on the area
   std::vector<Point> points = unique_points(input_points, gdim, DOLFIN_EPS);
 
+  // Too few points
   if (points.size() < 3)
     return std::vector<std::vector<Point>>();
 
+  // Exact one triangle
   if (points.size() == 3)
   {
-    const std::size_t tdim = 2;
     std::vector<std::vector<Point>> triangulation;
     if (!GeometryPredicates::is_degenerate(points, tdim, gdim))
       triangulation.push_back(points);
     return triangulation;
   }
 
-  // Sometimes we can get an extra point on an edge: a-----c--b. This
-  // point c may cause problems for the graham scan. To avoid this,
-  // use an extra center point.  Use this center point and point no 0
-  // as reference for the angle calculation
-  Point pointscenter = points[0];
-  for (std::size_t m = 1; m < points.size(); ++m)
-    pointscenter += points[m];
-  pointscenter /= points.size();
+  // Graham scan
+  const std::vector<std::pair<double, std::size_t>> order
+    = graham_scan_2d(points);
 
-  // Reference
-  const Point ref = points[0] - pointscenter;
-
-  // Calculate and store angles
-  std::vector<std::pair<double, std::size_t>> order;
-  for (std::size_t m = 1; m < points.size(); ++m)
-  {
-    const double A = orient2d(pointscenter, points[0], points[m]);
-    const Point s = points[m] - pointscenter;
-    double alpha = std::atan2(A, s.dot(ref));
-    if (alpha < 0)
-      alpha += 2.0*DOLFIN_PI;
-    order.emplace_back(alpha, m);
-  }
-
-  // Sort angles
-  std::sort(order.begin(), order.end());
-
-  // Tesselate
+  // Tessellate
   std::vector<std::vector<Point>> triangulation;
-
   for (std::size_t m = 0; m < order.size()-1; ++m)
   {
-    // FIXME: We could consider only triangles with area > tolerance here.
     const std::vector<Point> tri {{ points[0],
 	  points[order[m].second],
 	  points[order[m + 1].second] }};
@@ -332,18 +410,101 @@ ConvexTriangulation::_triangulate_graham_scan_2d(const std::vector<Point>& input
 }
 //-----------------------------------------------------------------------------
 std::vector<std::vector<Point>>
+ConvexTriangulation::triangulate_graham_scan_2d_3d(const std::vector<Point>& input_points)
+  {
+  const std::vector<std::vector<Point>> triangulation
+    = _triangulate_graham_scan_2d_3d(input_points);
+
+  return triangulation;
+}
+//-----------------------------------------------------------------------------
+std::vector<std::vector<Point>>
+ConvexTriangulation::_triangulate_graham_scan_2d_3d(const std::vector<Point>& input_points)
+{
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+  GeometryDebugging::print(input_points);
+#endif
+  dolfin_assert(GeometryPredicates::is_finite(input_points));
+  const std::size_t tdim = 2;
+  const std::size_t gdim = 3;
+
+  // Make sure the input points are unique. We assume this has
+  // negligble effect on the area
+  std::vector<Point> points = unique_points(input_points, gdim, DOLFIN_EPS);
+
+  // Too few points
+  if (points.size() < 3)
+    return std::vector<std::vector<Point>>();
+
+  // Exactly one triangle
+  if (points.size() == 3)
+  {
+    std::vector<std::vector<Point>> triangulation;
+    if (!GeometryPredicates::is_degenerate(points, tdim, gdim))
+      triangulation.push_back(points);
+    return triangulation;
+  }
+
+  // Check that all points are (almost) coplanar
+  for (std::size_t i = 3; i < points.size(); ++i)
+  {
+    const double o = orient3d(points[0], points[1], points[2],
+			      points[i]);
+    if (std::abs(o) > DOLFIN_EPS_LARGE)
+    {
+      // dolfin_error("ConvexTriangulation.cpp",
+      //   	   "triangulate tdim 2, gdim 3",
+      //   	   "points are not coplanar since o=%e", o);
+      std::cout << __FUNCTION__<<' '<<__LINE__<<" warning, perhaps not coplanar: " << std::abs(o) << '\n';
+    }
+  }
+
+  // Project to major axis and perform Graham scan.
+  const Point n = GeometryTools::cross_product(points[0], points[1], points[2]);
+  const std::size_t major_axis = GeometryTools::major_axis_3d(n);
+
+  // Project
+  std::vector<Point> proj(points.size());
+  for (std::size_t i = 0; i < points.size(); ++i)
+    proj[i] = GeometryTools::project_to_plane_3d(points[i], major_axis);
+
+  // Graham scan in projected plane
+  const std::vector<std::pair<double, std::size_t>> order
+    = graham_scan_2d(proj);
+
+  // Tessellate
+  std::vector<std::vector<Point>> triangulation;
+  for (std::size_t m = 0; m < order.size()-1; ++m)
+  {
+    // FIXME: We could consider only triangles with area > tolerance here.
+    const std::vector<Point> tri {{ points[0],
+	  points[order[m].second],
+	  points[order[m + 1].second] }};
+    if (!GeometryPredicates::is_degenerate(tri, tdim, gdim))
+      triangulation.push_back(tri);
+  }
+
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout<<"   " << __FUNCTION__ << ' ' << __LINE__ << " done\n";
+  GeometryDebugging::print(triangulation);
+#endif
+  
+  return triangulation;
+}
+//-----------------------------------------------------------------------------
+std::vector<std::vector<Point>>
 ConvexTriangulation::_triangulate_graham_scan_3d(const std::vector<Point>& input_points)
 {
-  dolfin_assert(GeometryPredicates::is_finite(input_points));
-
-  //std::cout << "Input to 3D Graham scan:" << std::endl;
-  //for (auto p : input_points)
-  //  std::cout << p << std::endl;
+ #ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
+ dolfin_assert(GeometryPredicates::is_finite(input_points));
+  const std::size_t tdim = 3;
+  const std::size_t gdim = 3;
 
   // Make sure the input points are unique. We assume this has
   // negligble effect on volume
-  const std::size_t tdim = 3;
-  const std::size_t gdim = 3;
   std::vector<Point> points = unique_points(input_points, gdim, DOLFIN_EPS);
 
   std::vector<std::vector<Point>> triangulation;
@@ -362,19 +523,16 @@ ConvexTriangulation::_triangulate_graham_scan_3d(const std::vector<Point>& input
   }
   else
   {
-    // Construct tetrahedra using facet points and a center point
-    Point polyhedroncenter(0,0,0);
-    for (const Point& p : points)
-      polyhedroncenter += p;
-    polyhedroncenter /= points.size();
+    const Point polyhedroncenter = std::accumulate(points.begin()+1, points.end(),
+						   points.front()) / points.size();
 
     // FIXME: Better data structure than set?
     std::set<std::tuple<std::size_t, std::size_t, std::size_t> > checked;
 
     // Loop over all triplets
-    for (std::size_t i = 0; i < points.size(); ++i)
+    for (std::size_t i = 0; i < points.size()-2; ++i)
     {
-      for (std::size_t j = i+1; j < points.size(); ++j)
+      for (std::size_t j = i+1; j < points.size()-1; ++j)
       {
         for (std::size_t k = j+1; k < points.size(); ++k)
         {
@@ -384,7 +542,7 @@ ConvexTriangulation::_triangulate_graham_scan_3d(const std::vector<Point>& input
             {
               const Point ij = points[j] - points[i];
               const Point ik = points[k] - points[i];
-              if ( -(std::abs( (ij/ij.norm() ).dot(ik/ik.norm()))-1)  < DOLFIN_EPS)
+	      if ( -(std::abs((ij).dot(ik)) - ij.norm()*ik.norm()) < DOLFIN_EPS)
                 continue;
             }
 
@@ -396,7 +554,7 @@ ConvexTriangulation::_triangulate_graham_scan_3d(const std::vector<Point>& input
 
 	    // Use orient3d to determine if the plane (i,j,k) is on the
 	    // convex hull.
-	    std::vector<std::size_t> coplanar = { i, j, k };
+	    std::vector<std::size_t> coplanar { i, j, k };
 	    double previous_orientation;
 	    bool first = true;
 
@@ -409,7 +567,7 @@ ConvexTriangulation::_triangulate_graham_scan_3d(const std::vector<Point>& input
 						    points[k],
 						    points[m]);
 		// Save point index if we find coplanar points
-		if (orientation == 0)
+		if (orientation == 0.0)
 		  coplanar.push_back(m);
                 else
                 {
@@ -421,7 +579,8 @@ ConvexTriangulation::_triangulate_graham_scan_3d(const std::vector<Point>& input
                   else
                   {
                     // Sign change: triangle is not on convex hull
-                    if (previous_orientation * orientation < 0)
+		    if ((previous_orientation < 0.0 and orientation > 0.0) or
+			(previous_orientation > 0.0 and orientation < 0.0))
                     {
                       on_convex_hull = false;
                     }
@@ -434,25 +593,17 @@ ConvexTriangulation::_triangulate_graham_scan_3d(const std::vector<Point>& input
 	    {
 	      if (coplanar.size() == 3)
 	      {
-		// Form one tetrahedron
-		std::vector<Point> cand = { points[i],
-					    points[j],
-					    points[k],
+		// Form one tetrahedron (can be degenerate due to
+		// calculation of polyhedroncenter)
+		const std::vector<Point> cand { points[i], points[j], points[k],
 					    polyhedroncenter };
-#ifdef DOLFIN_ENABLE_GEOMETRY_DEBUGGING
-                if (cgal_tet_is_degenerate(cand))
-                  dolfin_error("ConvexTriangulation.cpp",
-			       "triangulation 3d points",
-			       "tet is degenerate");
 
-#endif
-
-		// FIXME: Here we could include if determinant is sufficiently large
-                //for (auto p : cand)
-                //  std::cout << " " << p;
-                //std::cout << std::endl;
+		// FIXME: Here we could include if determinant is
+		// sufficiently large
 		if (!GeometryPredicates::is_degenerate(cand, tdim, gdim))
+		{
 		  triangulation.push_back(cand);
+	        }
 	      }
 	      else // At least four coplanar points
 	      {
@@ -471,10 +622,9 @@ ConvexTriangulation::_triangulate_graham_scan_3d(const std::vector<Point>& input
 		std::vector<std::pair<std::size_t, std::size_t>> coplanar_convex_hull =
 		  compute_convex_hull_planar(coplanar_points);
 
-		Point coplanar_center(0,0,0);
-		for (const Point& p : coplanar_points)
-		  coplanar_center += p;
-		coplanar_center /= coplanar_points.size();
+		const Point coplanar_center
+		  = std::accumulate(coplanar_points.begin()+1, coplanar_points.end(),
+				    coplanar_points.front()) / coplanar_points.size();
 
 		// Tessellate
 		for (const std::pair<std::size_t, std::size_t>& edge : coplanar_convex_hull)
@@ -486,39 +636,17 @@ ConvexTriangulation::_triangulate_graham_scan_3d(const std::vector<Point>& input
 		  if (!GeometryPredicates::is_degenerate(cand, tdim, gdim))
 		  {
 		    triangulation.push_back(cand);
-
-#ifdef DOLFIN_ENABLE_GEOMETRY_DEBUGGING
-		    if (cgal_tet_is_degenerate(triangulation.back()))
-		    {
-		      dolfin_error("ConvexTriangulation.cpp:544",
-				   "triangulation 3d points",
-				   "tet is degenerate");
-		    }
-
-		    if (cgal_triangulation_overlap(triangulation))
-		    {
-		      dolfin_error("ConvexTriangulation.cpp:544",
-				   "triangulation 3d points",
-				   "now triangulation overlaps");
-		    }
-#endif
 		  }
 
 		  // Mark all combinations of the coplanar vertices as
 		  // checked to avoid duplicating triangles
 		  std::sort(coplanar.begin(), coplanar.end());
 
-		  for (int i = 0; i < (int)coplanar.size()-2; i++)
-		  {
-		    for (int j = i+1; j < (int)coplanar.size()-1; j++)
-		    {
+		  for (std::size_t i = 0; i < coplanar.size()-2; ++i)
+		    for (std::size_t j = i+1; j < coplanar.size()-1; ++j)
 		      for (std::size_t k = j+1; k < coplanar.size(); k++)
-		      {
 			checked.emplace( std::make_tuple(coplanar[i], coplanar[j], coplanar[k]) );
-		      }
-                    }
-                  }
-                }
+		}
 	      } // end coplanar.size() > 3
 	    } // end on_convexhull
 	  }
@@ -533,6 +661,9 @@ ConvexTriangulation::_triangulate_graham_scan_3d(const std::vector<Point>& input
 std::vector<std::vector<Point>>
 ConvexTriangulation::triangulate_graham_scan_3d(const std::vector<Point>& pm)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   std::vector<std::vector<Point>> triangulation =
     _triangulate_graham_scan_3d(pm);
 
@@ -543,15 +674,35 @@ ConvexTriangulation::triangulate_graham_scan_3d(const std::vector<Point>& pm)
 		 "verify convex triangulation",
 		 "triangulation contains degenerate tetrahedron");
 
-  if (cgal_triangulation_overlap(triangulation))
+  const std::size_t tdim = 3;
+  const double reference_volume = cgal_polyhedron_volume(pm, tdim);
+  // If volume is really small it's no need to check overlap
+  if (std::abs(reference_volume) > DOLFIN_EPS and
+      cgal_triangulation_overlap(triangulation))
   {
+    std::cout << "\n\n cgal_triangulation_overlap error line " << __LINE__<<"\n";
+
+    for (const Point& p : pm)
+      std::cout << tools::plot(p);
+    std::cout << '\n';
+    double v=0;
+    for (const std::vector<Point>& tet : triangulation)
+    {
+      v += std::abs(orient3d(tet[0], tet[1], tet[2], tet[3]))/6.0;
+      std::cout << tools::drawtriangle(tet)<<"% "<<orient3d(tet[0], tet[1], tet[2], tet[3])/6.0<<'\n';
+    }
+    std::cout << '\n';
+    std::cout << "approx volume " << v << '\n';
+
+    std::cout << "reference volume " << reference_volume << '\n';
+
     dolfin_error("ConvexTriangulation.cpp",
 		 "verify convex triangulation",
 		 "tetrahedrons overlap");
   }
 
 
-  double volume = .0;
+  double volume = 0.0;
   for (const std::vector<Point>& tet : triangulation)
   {
     dolfin_assert(tet.size() == 4);
@@ -559,21 +710,29 @@ ConvexTriangulation::triangulate_graham_scan_3d(const std::vector<Point>& pm)
     volume += tet_volume;
   }
 
-  const double reference_volume = cgal_polyhedron_volume(pm);
-
   if (std::abs(volume - reference_volume) > DOLFIN_EPS_LARGE)
-    dolfin_error("ConvexTriangulation.cpp",
-		 "verifying convex triangulation",
-		 "computed volume %f, but reference volume is %f (diff %e)",
-		 volume, reference_volume, std::abs(reference_volume-volume));
+  {
+    for (const Point& p : pm)
+      std::cout << tools::plot(p);
+    std::cout << '\n';
 
-
+    const double error = std::abs(reference_volume-volume);
+    std::cout << "error vol " << volume<<' '<<reference_volume<<' '<<error<<'\n';
+    // dolfin_error("ConvexTriangulation.cpp",
+    // 		 "verifying convex triangulation",
+    // 		 "computed volume %e, but reference volume is %e (diff %e)",
+    // 		 volume, reference_volume, error);
+  }
 #endif
+
   return triangulation;
 }
 //-----------------------------------------------------------------------------
 bool ConvexTriangulation::selfintersects(const std::vector<std::vector<Point>>& p)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   for (std::size_t i = 0; i < p.size(); i++)
   {
     for (std::size_t j = i+1; j < p.size(); j++)
