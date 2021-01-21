@@ -248,7 +248,7 @@ ConvexTriangulation::triangulate(const std::vector<Point>& p,
                                  std::size_t tdim)
 {
 #ifdef DOLFIN_GEOMETRY_PRINT
-  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+  std::cout << __FUNCTION__ << ' ' << __LINE__ << ' '<<gdim<<' '<<tdim<<'\n';
 #endif
   if (p.empty())
     return std::vector<std::vector<Point>>();
@@ -288,6 +288,9 @@ std::vector<std::vector<Point>>
 ConvexTriangulation::_triangulate_1d(const std::vector<Point>& p,
 				     std::size_t gdim)
 {
+#ifdef DOLFIN_GEOMETRY_PRINT
+    std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
+#endif
   // A convex polyhedron of topological dimension 1 can not have more
   // than two points. If more, they must be collinear (more or
   // less). This can happen due to tolerances in
