@@ -1,5 +1,6 @@
 #include <dolfin/geometry/Point.h>
 #include "predicates.h"
+#include <tuple>
 
 //-----------------------------------------------------------------------------
 double dolfin::orient1d(double a, double b, double x)
@@ -18,10 +19,14 @@ double dolfin::orient2d(const Point& a, const Point& b, const Point& c)
 //-----------------------------------------------------------------------------
 double dolfin::orient3d(const Point& a, const Point& b, const Point& c, const Point& d)
 {
+#ifdef DOLFIN_GEOMETRY_MEMOIZATION
+  return dolfin::memoized_orient3d(a, b, c, d);
+#else
   return dolfin::_orient3d(a.coordinates(),
                            b.coordinates(),
                            c.coordinates(),
                            d.coordinates());
+#endif
 }
 //-----------------------------------------------------------------------------
 
@@ -2362,6 +2367,73 @@ REAL dolfin::_orient3d(const REAL *pa, const REAL *pb, const REAL *pc, const REA
 
 
 //--- DOLFIN-specific additions ---
+
+#include <cassert>
+namespace dolfin
+{
+  double memoized_orient3d(const Point& a, const Point& b, const Point& c, const Point& d)
+  {
+    //return orient3d(a, b, c, d);
+
+    typedef std::tuple<Point, Point, Point, Point> Key;
+    typedef std::map<Key, double> Map;
+
+    const Key t = std::make_tuple(a, b, c, d);
+    const Map::const_iterator it = hash_o3d.find(t);
+
+    if (it == hash_o3d.end())
+    {
+      // std::cout << "not found, dist end="<<std::distance(hash_o3d.end(), it) << std::endl;
+      // std::cout << "not found, dist begin="<<std::distance(hash_o3d.begin(), it) << std::endl;
+
+      //const double o = _orient3d(a.coordinates(), b.coordinates(), c.coordinates, d.coordinates());
+      const double o = dolfin::_orient3d(a.coordinates(),
+                                         b.coordinates(),
+                                         c.coordinates(),
+                                         d.coordinates());
+      
+      //hash_o3d[t] = o;
+      auto result = hash_o3d.emplace(Map::value_type(t, o));
+      //hash_o3d.at(t) = o;
+      //std::pair<Map::iterator, bool> result = hash_o3d.insert(Map::value_type(t, o));
+      if (!result.second)
+      {
+	std::cout << "key " << a<<' '<<b<<' '<<c<<' '<<d<<std::endl;
+	std::cout << "couldn't insert key\n";
+	auto rf = (result.first)->first;
+	std::cout << "result key " << std::get<0>(rf) <<' '<<std::get<1>(rf) <<' '<<std::get<2>(rf) <<' '<<std::get<3>(rf) <<std::endl;
+	std::cout << std::endl;
+	std::cout << "result o: " << (result.first)->second << std::endl;
+	std::cout << hash_o3d.count(t) << std::endl;
+	std::cout << it->second << std::endl;
+	assert(false);
+      }
+      return o;
+
+    }
+    else // (it != hash_o3d.end())
+    {
+      // Check that it's in the hash somewhere
+      //std::cout << "found, dist="<<std::distance(it, hash_o3d.end()) << std::endl;
+
+      assert(hash_o3d.count(t) == 1);
+
+      return it->second;
+    }
+    // else
+    // {
+    //   //return hash_o3d[t] = orient3d(a, b, c, d);
+
+    //   std::cout << "not found, dist="<<std::distance(it, hash_o3d.end()) << std::endl;
+
+    //   const double o = orient3d(a, b, c, d);
+    //   //hash_o3d[t] = o;
+    //   //hash_o3d.emplace(t, o);
+    //   hash_o3d.at(t) = o;
+    //   return o;
+    // }
+  }
+}
 
 #include "predicates.h"
 
