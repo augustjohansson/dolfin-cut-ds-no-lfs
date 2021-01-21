@@ -14,6 +14,7 @@
 
 #include <map>
 #include <tuple>
+#include <map>
 #include "Point.h"
 
 namespace dolfin
@@ -43,52 +44,7 @@ namespace dolfin
   /// Convenience function using dolfin::Point
   double orient3d(const Point& a, const Point& b, const Point& c, const Point& d);
 
-  // // Memoized version
-  // struct point_strictly_less
-  // {
-  //   bool operator()(const dolfin::Point& p0,
-  // 		    const dolfin::Point& p1) const
-  //   {
-  //     return p0[0] < p1[0] and p0[1] < p1[1] and p0[2] < p1[2];
-  //   }
-  // };
-
-  // typedef std::tuple<Point, Point, Point, Point> Key;
-
-  // struct point_strictly_less
-  // {
-  //   bool operator()(const Point& _x,
-  // 		    const Point& a) const
-  //   {
-  //     if (_x[0] != a[0]) {
-  // 	return _x[0] < a[0];
-  //     }
-
-  //     if (_x[1] != a[1]) {
-  // 	return _x[1] < a[1];
-  //     }
-
-  //     return _x[2] < a[2];
-  //   }
-  // };
-
-  // struct tuple_strictly_less
-  // {
-  //   bool operator(const Key& k1, const Key& k2)
-  //   {
-  //     const auto p0 = std::get<0>(k1);
-  //     const auto p1 = std::get<1>(k1);
-  //     const auto p2 = std::get<2>(k1);
-  //     const auto p3 = std::get<3>(k1);
-  //     const auto q0 = std::get<0>(k2);
-  //     const auto q1 = std::get<1>(k2);
-  //     const auto q2 = std::get<2>(k2);
-  //     const auto q3 = std::get<3>(k2);
-
-  //   }
-  // };
-
-  //static std::map<Key, double> hash_o3d;
+  // Memoized version 
   static std::map<std::tuple<Point, Point, Point, Point>, double> hash_o3d;
   double memoized_orient3d(const Point& a, const Point& b, const Point& c, const Point& d);
 

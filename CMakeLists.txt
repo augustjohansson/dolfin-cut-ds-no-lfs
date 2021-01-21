@@ -89,9 +89,9 @@ option(DOLFIN_SKIP_BUILD_TESTS "Skip build tests for testing usability of depend
 option(DOLFIN_WITH_LIBRARY_VERSION "Build with library version information." ON)
 option(DOLFIN_ENABLE_GEOMETRY_DEBUGGING "Enable geometry debugging (developers only; requires libcgal-dev and libcgal-qt5-dev)." OFF)
 #option(DOLFIN_GEOMETRY_PRINT "print debug info." ON)
-#add_definitions(-DDOLFIN_GEOMETRY_PRINT)
-#add_definitions(-DDOLFIN_MULTIMESH_PRINT)
-add_definitions(-DDOLFIN_GEOMETRY_MEMOIZATION)
+# add_definitions(-DDOLFIN_GEOMETRY_PRINT)
+# add_definitions(-DDOLFIN_MULTIMESH_PRINT)
+# add_definitions(-DDOLFIN_GEOMETRY_MEMOIZATION)
 
 add_feature_info(BUILD_SHARED_LIBS BUILD_SHARED_LIBS "Build DOLFIN with shared libraries.")
 add_feature_info(CMAKE_USE_RELATIVE_PATHS CMAKE_USE_RELATIVE_PATHS "Use relative paths in makefiles and projects.")
@@ -157,9 +157,11 @@ endforeach()
 
 # Default build type (can be overridden by user)
 if (NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING
+  set(CMAKE_BUILD_TYPE "Debug" CACHE STRING
     "Choose the type of build, options are: Debug Developer MinSizeRel Release RelWithDebInfo." FORCE)
 endif()
+set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING
+    "Choose the type of build, options are: Debug Developer MinSizeRel Release RelWithDebInfo." FORCE)
 
 # Check for some compiler flags
 include(CheckCXXCompilerFlag)
