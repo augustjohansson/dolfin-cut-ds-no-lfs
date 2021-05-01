@@ -41,9 +41,9 @@
 
 #include "dolfin_simplex_tools.h"
 
-#ifdef DOLFIN_MULTIMESH_PRINT
+// #ifdef DOLFIN_MULTIMESH_PRINT
 #include <iostream>
-#endif
+// #endif
 
 using namespace dolfin;
 
@@ -64,51 +64,51 @@ void MultiMeshAssembler::assemble(GenericTensor& A, const MultiMeshForm& a)
   begin(PROGRESS, "Assembling tensor over multimesh function space.");
 
   // Initialize global tensor
-#ifdef DOLFIN_MULTIMESH_PRINT
-  std::cout << __FUNCTION__<<' '<<__LINE__ << '\n';
-#endif
-    _init_global_tensor(A, a);
+// #ifdef DOLFIN_MULTIMESH_PRINT
+  std::cout << __FUNCTION__<<' '<<__LINE__ << " _init_global_tensor\n";
+// #endif
+  _init_global_tensor(A, a);
 
   // Assemble over uncut cells
-#ifdef DOLFIN_MULTIMESH_PRINT
-  std::cout << __FUNCTION__<<' '<<__LINE__ << '\n';
-#endif
+// #ifdef DOLFIN_MULTIMESH_PRINT
+  std::cout << __FUNCTION__<<' '<<__LINE__ << " _assemble_uncut_cells\n";
+// #endif
   _assemble_uncut_cells(A, a);
 
   // Assemble over exterior facets
-#ifdef DOLFIN_MULTIMESH_PRINT
-  std::cout << __FUNCTION__<<' '<<__LINE__ << '\n';
-#endif
+// #ifdef DOLFIN_MULTIMESH_PRINT
+  std::cout << __FUNCTION__<<' '<<__LINE__ << " _assemble_exterior_facets\n";
+// #endif
   _assemble_exterior_facets(A, a);
 
   // Assemble over cut cells
-#ifdef DOLFIN_MULTIMESH_PRINT
-  std::cout << __FUNCTION__<<' '<<__LINE__ << '\n';
-#endif
+// #ifdef DOLFIN_MULTIMESH_PRINT
+  std::cout << __FUNCTION__<<' '<<__LINE__ << " _assemble_cut_cells\n";
+// #endif
   _assemble_cut_cells(A, a);
 
   // Assemble over interface
-#ifdef DOLFIN_MULTIMESH_PRINT
-  std::cout << __FUNCTION__<<' '<<__LINE__ << '\n';
-#endif
+//#ifdef DOLFIN_MULTIMESH_PRINT
+  std::cout << __FUNCTION__<<' '<<__LINE__ << " _assemble_interface\n";
+//#endif
   _assemble_interface(A, a);
 
   // Assemble over overlap
-#ifdef DOLFIN_MULTIMESH_PRINT
-  std::cout << __FUNCTION__<<' '<<__LINE__ << '\n';
-#endif
+//#ifdef DOLFIN_MULTIMESH_PRINT
+  std::cout << __FUNCTION__<<' '<<__LINE__ << " _assemble_overlap\n";
+//#endif
   _assemble_overlap(A, a);
 
   // Assemble over exterior facets
-#ifdef DOLFIN_MULTIMESH_PRINT
-  std::cout << __FUNCTION__<<' '<<__LINE__ << '\n';
-#endif
+//#ifdef DOLFIN_MULTIMESH_PRINT
+  std::cout << __FUNCTION__<<' '<<__LINE__ << " _assemble_cut_exterior_facets\n";
+//#endif
   _assemble_cut_exterior_facets(A, a);
 
   // Assemble over custom internal faces (ghost penalty faces)
-#ifdef DOLFIN_MULTIMESH_PRINT
-  std::cout << __FUNCTION__<<' '<<__LINE__ << '\n';
-#endif
+//#ifdef DOLFIN_MULTIMESH_PRINT
+  std::cout << __FUNCTION__<<' '<<__LINE__ << " _assemble_ghost_penalty_faces\n";
+//#endif
   _assemble_ghost_penalty_faces(A, a);
   
   // Finalize assembly of global tensor
@@ -821,9 +821,9 @@ void MultiMeshAssembler::_assemble_cut_exterior_facets(GenericTensor& A,
   // Iterate over parts
   for (std::size_t part = 0; part < a.num_parts(); part++)
   {
-#ifdef DOLFIN_MULTIMESH_PRINT
-    std::cout << __FUNCTION__<<' '<<__LINE__ << " p " << part<<' '<< a.part(part)->mesh()->num_cells() << '\n';
-#endif
+// #ifdef DOLFIN_MULTIMESH_PRINT
+//     std::cout << __FUNCTION__<<' '<<__LINE__ << " p " << part<<' '<< a.part(part)->mesh()->num_cells() << '\n';
+// #endif
    
     log(PROGRESS, "Assembling multimesh form over cut exterior facets on part %d.", part);
 
@@ -875,17 +875,17 @@ void MultiMeshAssembler::_assemble_cut_exterior_facets(GenericTensor& A,
 
       // Update to current cell
       cell.get_cell_data(ufc_cell);
-#ifdef DOLFIN_MULTIMESH_PRINT
-      std::cout << __FUNCTION__<<' '<<__LINE__ << " p " << part<<" cell_index " << cell_index << '\n';
-#endif
+// #ifdef DOLFIN_MULTIMESH_PRINT
+//       std::cout << __FUNCTION__<<' '<<__LINE__ << " p " << part<<" cell_index " << cell_index << '\n';
+// #endif
       cell.get_coordinate_dofs(coordinate_dofs);
-#ifdef DOLFIN_MULTIMESH_PRINT
-      std::cout << __FUNCTION__<<' '<<__LINE__ << " p " << part<<" cell_index " << cell_index << '\n';
-#endif
+// #ifdef DOLFIN_MULTIMESH_PRINT
+//       std::cout << __FUNCTION__<<' '<<__LINE__ << " p " << part<<" cell_index " << cell_index << '\n';
+// #endif
       ufc_part.update(cell, coordinate_dofs, ufc_cell);
-#ifdef DOLFIN_MULTIMESH_PRINT
-      std::cout << __FUNCTION__<<' '<<__LINE__ << " p " << part<<" cell_index " << cell_index << '\n';
-#endif
+// #ifdef DOLFIN_MULTIMESH_PRINT
+//       std::cout << __FUNCTION__<<' '<<__LINE__ << " p " << part<<" cell_index " << cell_index << '\n';
+// #endif
 
       // Get local-to-global dof maps for cell
       for (std::size_t i = 0; i < form_rank; ++i)
@@ -894,21 +894,21 @@ void MultiMeshAssembler::_assemble_cut_exterior_facets(GenericTensor& A,
         auto dmap = dofmap->cell_dofs(cell.index());
         dofs[i].set(dmap.size(), dmap.data());
       }
-#ifdef DOLFIN_MULTIMESH_PRINT
-      std::cout << __FUNCTION__<<' '<<__LINE__ << " p " << part<<" cell_index " << cell_index << '\n';
-#endif
+// #ifdef DOLFIN_MULTIMESH_PRINT
+//       std::cout << __FUNCTION__<<' '<<__LINE__ << " p " << part<<" cell_index " << cell_index << '\n';
+// #endif
 
       // Get quadrature rule for cut cell
       const auto& qr = it->second;
- #ifdef DOLFIN_MULTIMESH_PRINT
-      std::cout << __FUNCTION__<<' '<<__LINE__ << " p " << part<<" cell_index " << cell_index << '\n';
-#endif
+// #ifdef DOLFIN_MULTIMESH_PRINT
+//       std::cout << __FUNCTION__<<' '<<__LINE__ << " p " << part<<" cell_index " << cell_index << '\n';
+// #endif
      
       // Get normal
       const auto& normals = facet_normals.at(cell_index);
-  #ifdef DOLFIN_MULTIMESH_PRINT
-      std::cout << __FUNCTION__<<' '<<__LINE__ << " p " << part<<" cell_index " << cell_index << '\n';
-#endif
+// #ifdef DOLFIN_MULTIMESH_PRINT
+//       std::cout << __FUNCTION__<<' '<<__LINE__ << " p " << part<<" cell_index " << cell_index << '\n';
+// #endif
     
       // Skip if there are no quadrature points
       std::size_t num_quadrature_points = qr.second.size();
@@ -916,9 +916,9 @@ void MultiMeshAssembler::_assemble_cut_exterior_facets(GenericTensor& A,
         continue;
 
       // Tabulate cell tensor
-#ifdef DOLFIN_MULTIMESH_PRINT
-      std::cout << __FUNCTION__<<' '<<__LINE__ << " p " << part<<" cell_index " << cell_index << '\n';
-#endif
+// #ifdef DOLFIN_MULTIMESH_PRINT
+//       std::cout << __FUNCTION__<<' '<<__LINE__ << " p " << part<<" cell_index " << cell_index << '\n';
+// #endif
       integral->tabulate_tensor(ufc_part.A.data(),
                                 ufc_part.w(),
                                 coordinate_dofs.data(),
@@ -927,9 +927,9 @@ void MultiMeshAssembler::_assemble_cut_exterior_facets(GenericTensor& A,
                                 qr.second.data(),
                                 normals.data(),
                                 ufc_cell.orientation);
-#ifdef DOLFIN_MULTIMESH_PRINT
-      std::cout << __FUNCTION__<<' '<<__LINE__ << " p " << part<<" cell_index " << cell_index << '\n';
-#endif
+// #ifdef DOLFIN_MULTIMESH_PRINT
+//       std::cout << __FUNCTION__<<' '<<__LINE__ << " p " << part<<" cell_index " << cell_index << '\n';
+// #endif
 
       // Add entries to global tensor
       A.add(ufc_part.A.data(), dofs);
