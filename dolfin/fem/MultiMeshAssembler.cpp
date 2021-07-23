@@ -64,69 +64,69 @@ void MultiMeshAssembler::assemble(GenericTensor& A, const MultiMeshForm& a)
   begin(PROGRESS, "Assembling tensor over multimesh function space.");
 
   // Initialize global tensor
-  // #ifdef DOLFIN_MULTIMESH_PRINT
-  std::cout << __FUNCTION__<<' '<<__LINE__ << " _init_global_tensor\n";
-  // #endif
   Timer timer;
   timer.start();  
   _init_global_tensor(A, a);
+#ifdef DOLFIN_MULTIMESH_PRINT
+  std::cout << __FUNCTION__<<' '<<__LINE__ << " _init_global_tensor\n";
   std::cout << " took " << timer.stop() << '\n';
+#endif
 
   // Assemble over uncut cells
-  // #ifdef DOLFIN_MULTIMESH_PRINT
-  std::cout << __FUNCTION__<<' '<<__LINE__ << " _assemble_uncut_cells\n";
-  // #endif
   timer.start();  
   _assemble_uncut_cells(A, a);
+#ifdef DOLFIN_MULTIMESH_PRINT
+  std::cout << __FUNCTION__<<' '<<__LINE__ << " _assemble_uncut_cells\n";
   std::cout << " took " << timer.stop() << '\n';
-
+#endif
+  
   // Assemble over exterior facets
-  // #ifdef DOLFIN_MULTIMESH_PRINT
-  std::cout << __FUNCTION__<<' '<<__LINE__ << " _assemble_exterior_facets\n";
-  // #endif
   timer.start();  
   _assemble_exterior_facets(A, a);
+#ifdef DOLFIN_MULTIMESH_PRINT
+  std::cout << __FUNCTION__<<' '<<__LINE__ << " _assemble_exterior_facets\n";
   std::cout << " took " << timer.stop() << '\n';
-
+#endif
+  
   // Assemble over cut cells
-  // #ifdef DOLFIN_MULTIMESH_PRINT
-  std::cout << __FUNCTION__<<' '<<__LINE__ << " _assemble_cut_cells\n";
-  // #endif
   timer.start();  
   _assemble_cut_cells(A, a);
+#ifdef DOLFIN_MULTIMESH_PRINT
+  std::cout << __FUNCTION__<<' '<<__LINE__ << " _assemble_cut_cells\n";
   std::cout << " took " << timer.stop() << '\n';
+#endif
 
   // Assemble over interface
-  //#ifdef DOLFIN_MULTIMESH_PRINT
-  std::cout << __FUNCTION__<<' '<<__LINE__ << " _assemble_interface\n";
-  //#endif
   timer.start();  
   _assemble_interface(A, a);
+#ifdef DOLFIN_MULTIMESH_PRINT
+  std::cout << __FUNCTION__<<' '<<__LINE__ << " _assemble_interface\n";
   std::cout << " took " << timer.stop() << '\n';
-
+#endif
+  
   // Assemble over overlap
-  //#ifdef DOLFIN_MULTIMESH_PRINT
-  std::cout << __FUNCTION__<<' '<<__LINE__ << " _assemble_overlap\n";
-  //#endif
   timer.start();  
   _assemble_overlap(A, a);
+#ifdef DOLFIN_MULTIMESH_PRINT
+  std::cout << __FUNCTION__<<' '<<__LINE__ << " _assemble_overlap\n";
   std::cout << " took " << timer.stop() << '\n';
-
+#endif
+  
   // Assemble over exterior facets
-  //#ifdef DOLFIN_MULTIMESH_PRINT
-  std::cout << __FUNCTION__<<' '<<__LINE__ << " _assemble_cut_exterior_facets\n";
-  //#endif
   timer.start();  
   _assemble_cut_exterior_facets(A, a);
+#ifdef DOLFIN_MULTIMESH_PRINT
+  std::cout << __FUNCTION__<<' '<<__LINE__ << " _assemble_cut_exterior_facets\n";
   std::cout << " took " << timer.stop() << '\n';
-
-  // Assemble over custom internal faces (ghost penalty faces)
-  //#ifdef DOLFIN_MULTIMESH_PRINT
-  std::cout << __FUNCTION__<<' '<<__LINE__ << " _assemble_ghost_penalty_faces\n";
-  //#endif
-  timer.start();  
-  _assemble_ghost_penalty_faces(A, a);
-  std::cout << " took " << timer.stop() << '\n';
+#endif
+  
+//   // Assemble over custom internal faces (ghost penalty faces)
+//   timer.start();  
+//   _assemble_ghost_penalty_faces(A, a);
+// #ifdef DOLFIN_MULTIMESH_PRINT
+//   std::cout << __FUNCTION__<<' '<<__LINE__ << " _assemble_ghost_penalty_faces\n";
+//   std::cout << " took " << timer.stop() << '\n';
+// #endif
   
   // Finalize assembly of global tensor
   if (finalize_tensor)
@@ -226,6 +226,7 @@ void MultiMeshAssembler::_assemble_exterior_facets(GenericTensor& A,
                                 local_facet,
                                 ufc_cell.orientation);
 
+      
       // Add entries to global tensor
       A.add(ufc_part.A.data(), dofs);
     }
