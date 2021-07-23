@@ -48,6 +48,11 @@
 #include <dolfin/geometry/GeometryDebugging.h>
 #endif
 
+// #ifdef DOLFIN_MULTIMESH_PRINT
+#include <dolfin/common/Timer.h>
+#include <iostream>
+// #endif
+
 using namespace dolfin;
 
 //-----------------------------------------------------------------------------
@@ -288,35 +293,59 @@ void MultiMesh::add(std::shared_ptr<const Mesh> mesh)
 void MultiMesh::build(std::size_t quadrature_order)
 {
   begin(PROGRESS, "Building multimesh.");
-  
+  Timer timer;
   // Build boundary meshes
+  std::cout << __FUNCTION__<<' '<<__LINE__ << " _build_boundary_meshes\n";
+  timer.start();  
   _build_boundary_meshes();
+  std::cout << " took " << timer.stop() << '\n';
   
   // Build bounding box trees
+  std::cout << __FUNCTION__<<' '<<__LINE__ << " _build_bounding_box_trees\n";
+  timer.start();  
   _build_bounding_box_trees();
-  
+  std::cout << " took " << timer.stop() << '\n';
+
   // Build collision maps, i.e. classify cut, uncut and covered cells
+  std::cout << __FUNCTION__<<' '<<__LINE__ << " _build_collision_maps\n";
+  timer.start();  
   _build_collision_maps();
-  
+  std::cout << " took " << timer.stop() << '\n';
+
   // For collisions with meshes of same type we get three types of
   // quadrature rules: the cut cell qr, qr of the overlap part and qr
   // of the interface.
 
   // Build quadrature rules of the cut cells' overlap. Do this before
   // we build the quadrature rules of the cut cells
+  std::cout << __FUNCTION__<<' '<<__LINE__ << " _build_quadrature_rules_overlap\n";
+  timer.start();  
   _build_quadrature_rules_overlap(quadrature_order);
-  
+  std::cout << " took " << timer.stop() << '\n';
+
   // Build quadrature rules of the cut cells
+  std::cout << __FUNCTION__<<' '<<__LINE__ << " _build_quadrature_rules_cut_cells\n";
+  timer.start();  
   _build_quadrature_rules_cut_cells(quadrature_order);
-  
+  std::cout << " took " << timer.stop() << '\n';
+
   // Build quadrature rules and normals of the interface
+  std::cout << __FUNCTION__<<' '<<__LINE__ << " _build_quadrature_rules_interface\n";
+  timer.start();  
   _build_quadrature_rules_interface(quadrature_order);
-  
+  std::cout << " took " << timer.stop() << '\n';
+
   // Build quadrature rules and normals for the exterior facets
+  std::cout << __FUNCTION__<<' '<<__LINE__ << " _build_quadrature_rules_exterior_cut_facets\n";
+  timer.start();  
   _build_quadrature_rules_exterior_cut_facets(quadrature_order);
+  std::cout << " took " << timer.stop() << '\n';
 
   // Find faces where we need to apply ghost stab
+  std::cout << __FUNCTION__<<' '<<__LINE__ << " _build_ghost_penalty_faces\n";
+  timer.start();  
   _build_ghost_penalty_faces();
+  std::cout << " took " << timer.stop() << '\n';
 
   // Make sure that cut cells are actually cut
   // TODO: Check if this needed
