@@ -229,20 +229,21 @@ endif()
 # Check for MPI
 
 # FIXME: Should be set CMake to use the MPI compiler wrappers?
+find_package(MPI 3 REQUIRED)
 
-if (DOLFIN_ENABLE_MPI)
-  if (DOLFIN_AUTO_DETECT_MPI)
-    find_package(MPI)
-    set_package_properties(MPI PROPERTIES TYPE OPTIONAL
-      DESCRIPTION "Message Passing Interface (MPI)"
-      PURPOSE "Enables DOLFIN to run in parallel with MPI")
-  else()
-    # Assume user has set MPI compiler wrappers (via CXX, etc or
-    # CMAKE_CXX_COMPILER, etc)
-    set(MPI_CXX_FOUND TRUE)
-    set(MPI_C_FOUND TRUE)
-  endif()
-endif()
+# if (DOLFIN_ENABLE_MPI)
+#   if (DOLFIN_AUTO_DETECT_MPI)
+#     find_package(MPI)
+#     set_package_properties(MPI PROPERTIES TYPE OPTIONAL
+#       DESCRIPTION "Message Passing Interface (MPI)"
+#       PURPOSE "Enables DOLFIN to run in parallel with MPI")
+#   else()
+#     # Assume user has set MPI compiler wrappers (via CXX, etc or
+#     # CMAKE_CXX_COMPILER, etc)
+#     set(MPI_CXX_FOUND TRUE)
+#     set(MPI_C_FOUND TRUE)
+#   endif()
+# endif()
 
 #------------------------------------------------------------------------------
 # Run tests to find required packages
@@ -384,81 +385,81 @@ if (DOLFIN_ENABLE_HDF5)
     URL "https://www.hdfgroup.org/HDF5")
 endif()
 
-# Check for Trilinos and the requires Trilinos packages
-if (DOLFIN_ENABLE_TRILINOS)
-  message(STATUS "Checking for Trilinos")
-  find_package(Trilinos QUIET PATHS ${TRILINOS_DIR} ${Trilinos_DIR}
-    $ENV{TRILINOS_DIR})
-  set(DOLFIN_TRILINOS_PACKAGES "Tpetra;Zoltan;MueLu;Amesos2;Ifpack2;Belos")
+# # Check for Trilinos and the requires Trilinos packages
+# if (DOLFIN_ENABLE_TRILINOS)
+#   message(STATUS "Checking for Trilinos")
+#   find_package(Trilinos QUIET PATHS ${TRILINOS_DIR} ${Trilinos_DIR}
+#     $ENV{TRILINOS_DIR})
+#   set(DOLFIN_TRILINOS_PACKAGES "Tpetra;Zoltan;MueLu;Amesos2;Ifpack2;Belos")
 
-  if ("${Trilinos_VERSION}" VERSION_LESS "12.4.0")
-    set(Trilinos_FOUND FALSE)
-    message(STATUS "Unable to find Trilinos (>= 12.4.0)")
-  endif()
+#   if ("${Trilinos_VERSION}" VERSION_LESS "12.4.0")
+#     set(Trilinos_FOUND FALSE)
+#     message(STATUS "Unable to find Trilinos (>= 12.4.0)")
+#   endif()
 
-  set_package_properties(Trilinos PROPERTIES TYPE OPTIONAL
-    DESCRIPTION "Object-oriented framework for large-scale problems"
-    URL "https://trilinos.org")
+#   set_package_properties(Trilinos PROPERTIES TYPE OPTIONAL
+#     DESCRIPTION "Object-oriented framework for large-scale problems"
+#     URL "https://trilinos.org")
 
-  # Check for required packages
-  set(DOLFIN_TRILINOS_PACKAGES_FOUND false)
-  if (Trilinos_FOUND)
-    message(STATUS "  Trilinos version ${Trilinos_VERSION} found. Checking for components")
+#   # Check for required packages
+#   set(DOLFIN_TRILINOS_PACKAGES_FOUND false)
+#   if (Trilinos_FOUND)
+#     message(STATUS "  Trilinos version ${Trilinos_VERSION} found. Checking for components")
 
-    # Check that necessary packages are enabled
-    set(DOLFIN_TRILINOS_PACKAGES_FOUND true)
-    foreach (required_package ${DOLFIN_TRILINOS_PACKAGES})
+#     # Check that necessary packages are enabled
+#     set(DOLFIN_TRILINOS_PACKAGES_FOUND true)
+#     foreach (required_package ${DOLFIN_TRILINOS_PACKAGES})
 
-      # Search for required package in list of available packages
-      list(FIND Trilinos_PACKAGE_LIST ${required_package} required_trilinos_package_index)
-      if(required_trilinos_package_index EQUAL -1)
-          set(required_trilinos_package_found false)
-      else()
-          set(required_trilinos_package_found true)
-      endif()
+#       # Search for required package in list of available packages
+#       list(FIND Trilinos_PACKAGE_LIST ${required_package} required_trilinos_package_index)
+#       if(required_trilinos_package_index EQUAL -1)
+#           set(required_trilinos_package_found false)
+#       else()
+#           set(required_trilinos_package_found true)
+#       endif()
 
-      # Print whether or not package is found
-      if (required_trilinos_package_found)
-        message(STATUS "    ${required_package} found")
-      else()
-        message(STATUS "    Trilinos found, but required package ${required_package} not found. Trilinos will be disabled.")
-        set(DOLFIN_TRILINOS_PACKAGES_FOUND false)
-        break()
-      endif()
+#       # Print whether or not package is found
+#       if (required_trilinos_package_found)
+#         message(STATUS "    ${required_package} found")
+#       else()
+#         message(STATUS "    Trilinos found, but required package ${required_package} not found. Trilinos will be disabled.")
+#         set(DOLFIN_TRILINOS_PACKAGES_FOUND false)
+#         break()
+#       endif()
 
-    endforeach()
+#     endforeach()
 
-    # Add package libraries if all packages have been found
-    if (DOLFIN_TRILINOS_PACKAGES_FOUND)
-      message(STATUS "  All necessary Trilinos components found. Trilinos will be enabled.")
-      set(DOLFIN_TRILINOS_DEFINITIONS)
+#     # Add package libraries if all packages have been found
+#     if (DOLFIN_TRILINOS_PACKAGES_FOUND)
+#       message(STATUS "  All necessary Trilinos components found. Trilinos will be enabled.")
+#       set(DOLFIN_TRILINOS_DEFINITIONS)
 
-      # Loop over each package
-      foreach (package ${DOLFIN_TRILINOS_PACKAGES})
+#       # Loop over each package
+#       foreach (package ${DOLFIN_TRILINOS_PACKAGES})
 
-        # Loop over libs and get full path
-        foreach (lib ${${package}_LIBRARIES})
-          find_library(TRILINOS_LIB_${lib} ${lib} PATHS ${${package}_LIBRARY_DIRS} NO_DEFAULT_PATH)
-          # Also search the default paths
-          find_library(TRILINOS_LIB_${lib} ${lib})
-          if (TRILINOS_LIB_${lib})
-            list(APPEND DOLFIN_TRILINOS_LIBRARIES ${TRILINOS_LIB_${lib}})
-          endif()
-        endforeach()
+#         # Loop over libs and get full path
+#         foreach (lib ${${package}_LIBRARIES})
+#           find_library(TRILINOS_LIB_${lib} ${lib} PATHS ${${package}_LIBRARY_DIRS} NO_DEFAULT_PATH)
+#           # Also search the default paths
+#           find_library(TRILINOS_LIB_${lib} ${lib})
+#           if (TRILINOS_LIB_${lib})
+#             list(APPEND DOLFIN_TRILINOS_LIBRARIES ${TRILINOS_LIB_${lib}})
+#           endif()
+#         endforeach()
 
-      endforeach()
+#       endforeach()
 
-      # Remove duplicates
-      list(REVERSE DOLFIN_TRILINOS_LIBRARIES)
-      list(REMOVE_DUPLICATES DOLFIN_TRILINOS_LIBRARIES)
-      list(REVERSE DOLFIN_TRILINOS_LIBRARIES)
+#       # Remove duplicates
+#       list(REVERSE DOLFIN_TRILINOS_LIBRARIES)
+#       list(REMOVE_DUPLICATES DOLFIN_TRILINOS_LIBRARIES)
+#       list(REVERSE DOLFIN_TRILINOS_LIBRARIES)
 
-    endif()
+#     endif()
 
-  else()
-    message(STATUS "Trilinos could not be found")
-  endif()
-endif()
+#   else()
+#     message(STATUS "Trilinos could not be found")
+#   endif()
+# endif()
 
 # Check for zlib
 if (DOLFIN_ENABLE_ZLIB)
