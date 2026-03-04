@@ -25,8 +25,8 @@ import dolfin.cpp as cpp
 from dolfin.function.function import Function
 
 # Import UFL
-import ufl
-from ufl.algorithms.ad import expand_derivatives
+import ufl_legacy as ufl
+from ufl_legacy.algorithms.ad import expand_derivatives
 
 # Local imports
 from dolfin.fem.form import Form
@@ -221,7 +221,7 @@ def solve(*args, **kwargs):
         solve(F == 0, u, bcs=bc, tol=tol, M=M)
 
     """
-    assert(len(args) > 0)
+    assert (len(args) > 0)
 
     # Call adaptive solve if we get a tolerance
     if "tol" in kwargs:
@@ -455,8 +455,8 @@ def _extract_bcs(bcs):
 
 def assemble_mixed_system(*args, **kwargs):
     "Assemble mixed variational problem a == L or F == 0"
-    assert(len(args) > 0)
-    assert(isinstance(args[0], ufl.classes.Equation))
+    assert (len(args) > 0)
+    assert (isinstance(args[0], ufl.classes.Equation))
 
     # Extract arguments
     eq, u, bcs, J, tol, M, preconditioner, form_compiler_parameters, solver_parameters\
@@ -506,7 +506,7 @@ def assemble_mixed_system(*args, **kwargs):
 # NOTE : Need to be updated to take into acccount NL problems
 def solve_mixed_system(*args, **kwargs):
     "Solve assembled mixed variational problem a == L or F == 0"
-    assert(len(args) == 1)  # No arguments except the assembled system
+    assert (len(args) == 1)  # No arguments except the assembled system
     system = args[0]
 
     # Extract parameters

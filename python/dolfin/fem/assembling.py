@@ -29,13 +29,13 @@ rely on the dolfin::Form class which is not used on the Python side.
 # You should have received a copy of the GNU Lesser General Public License
 # along with DOLFIN. If not, see <http://www.gnu.org/licenses/>.
 
-import ufl
+import ufl_legacy as ufl
 import dolfin.cpp as cpp
 from dolfin.fem.form import Form
 from dolfin import MPI
 from dolfin.function.multimeshfunction import MultiMeshFunction
 
-from ufl.form import sub_forms_by_domain
+from ufl_legacy.form import sub_forms_by_domain
 
 __all__ = ["assemble", "assemble_mixed", "assemble_local", "assemble_system",
            "assemble_multimesh", "SystemAssembler"]
@@ -205,7 +205,21 @@ def assemble(form, tensor=None, form_compiler_parameters=None,
     comm = dolfin_form.mesh().mpi_comm()
     tensor = _create_tensor(comm, form, dolfin_form.rank(), backend, tensor)
 
+    # Check if the integrands belong to same or different (sub)meshes
+    # Cannot used standard assembler if different submeshes (fom MeshView) are involved
+    same_mesh = True
+    for integral in form._integrals:
+        for op in integral.integrand().ufl_operands:
+            if isinstance(op, ufl.Coefficient) or isinstance(op, ufl.Argument):
+                if hasattr(op, "ufl_function_space") and op.ufl_function_space().ufl_domain() is not None:
+                    same_mesh = bool(
+                        same_mesh and op.ufl_function_space().ufl_domain().ufl_id() == dolfin_form.mesh().ufl_domain().ufl_id()
+                    )
+
     # Create C++ assembler
+    if not same_mesh:
+        cpp.warning("assemble() with forms involving integrands belonging to different meshes might be inappropriate.\n If you are using MeshView, please use assemble_mixed() instead")
+
     assembler = cpp.fem.Assembler()
 
     # Set assembler options
@@ -494,8 +508,10 @@ class SystemAssembler(cpp.fem.SystemAssembler):
         """
 
         if isinstance(A_form, list) and isinstance(b_form, list):
-            A_dolfin_forms = [_create_dolfin_form(f, form_compiler_parameters) for f in A_form]
-            b_dolfin_forms = [_create_dolfin_form(f, form_compiler_parameters) for f in b_form]
+            A_dolfin_forms = [_create_dolfin_form(
+                f, form_compiler_parameters) for f in A_form]
+            b_dolfin_forms = [_create_dolfin_form(
+                f, form_compiler_parameters) for f in b_form]
 
             # Call C++ assemble function
             cpp.fem.SystemAssembler.__init__(self, A_dolfin_forms, b_dolfin_forms,
@@ -507,8 +523,10 @@ class SystemAssembler(cpp.fem.SystemAssembler):
         else:
             # Create dolfin Form objects referencing all data needed by
             # assembler
-            A_dolfin_form = _create_dolfin_form(A_form, form_compiler_parameters)
-            b_dolfin_form = _create_dolfin_form(b_form, form_compiler_parameters)
+            A_dolfin_form = _create_dolfin_form(
+                A_form, form_compiler_parameters)
+            b_dolfin_form = _create_dolfin_form(
+                b_form, form_compiler_parameters)
 
             # Check bcs
             bcs = _wrap_in_list(bcs, 'bcs', cpp.fem.DirichletBC)
