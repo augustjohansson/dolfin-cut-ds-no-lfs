@@ -24,6 +24,8 @@ set(DOLFIN_DIRS)
 # List of excluded files and directories
 set(EXCLUDES ${DOLFIN_H} CMakeLists.txt)
 
+list(APPEND EXCLUDES dolfin_simplex_tools.h)
+
 # Iterate over all directories and files and append to DOLFIN_DIRS
 foreach(_DIR_NAME ${DOLFIN_CONTENT})
   list(FIND EXCLUDES ${_DIR_NAME} INDEX_EXCLUDES)
