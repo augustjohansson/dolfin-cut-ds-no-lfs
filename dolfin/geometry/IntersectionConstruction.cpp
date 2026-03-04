@@ -30,7 +30,7 @@
 #include "CGALExactArithmetic.h"
 
 //#ifdef DOLFIN_GEOMETRY_PRINT
-#include "dolfin_simplex_tools.h"
+#include "../dolfin_simplex_tools.h"
 //#endif
 
 using namespace dolfin;

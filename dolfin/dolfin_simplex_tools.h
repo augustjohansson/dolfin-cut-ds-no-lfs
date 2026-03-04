@@ -12,7 +12,7 @@
 //#include </home/fenics/shared/dolfin-test/dolfin/dolfin.h>
 //#include </home/august/dev/fenics-dev/env_dolfin_logg/logg-dolfin/dolfin/dolfin.h>
 //#include </home/fenics/shared/dolfin/dolfin/dolfin.h>
-#include "../dolfin.h"
+#include "dolfin.h"
 
 namespace tools
 {

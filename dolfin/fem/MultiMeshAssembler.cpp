@@ -39,7 +39,7 @@
 #include "MultiMeshDofMap.h"
 #include "MultiMeshAssembler.h"
 
-#include "dolfin_simplex_tools.h"
+#include "../dolfin_simplex_tools.h"
 
 // #ifdef DOLFIN_MULTIMESH_PRINT
 #include <iostream>

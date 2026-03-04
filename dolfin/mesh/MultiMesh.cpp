@@ -44,7 +44,7 @@
 
 #ifdef DOLFIN_GEOMETRY_PRINT
 #include <iostream>
-#include "dolfin_simplex_tools.h"
+#include "../dolfin_simplex_tools.h"
 #include <dolfin/geometry/GeometryDebugging.h>
 #endif
 
