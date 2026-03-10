@@ -111,6 +111,7 @@ namespace dolfin
   {
   public:
     using simpex::SimplexQuadrature::SimplexQuadrature;
+    using simpex::SimplexQuadrature::compute_quadrature_rule;
 
     /// Compute quadrature rule for a dolfin Cell.
     std::pair<std::vector<double>, std::vector<double>>

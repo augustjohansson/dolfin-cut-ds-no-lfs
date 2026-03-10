@@ -285,6 +285,8 @@ namespace dolfin
   class IntersectionConstruction : public simpex::IntersectionConstruction
   {
   public:
+    using simpex::IntersectionConstruction::intersection;
+
     /// Compute intersection of two mesh entities.
     static std::vector<simpex::Point>
     intersection(const MeshEntity& entity_0,
