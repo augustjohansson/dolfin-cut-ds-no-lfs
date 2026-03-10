@@ -23,6 +23,7 @@
 #include "Mesh.h"
 #include "MeshFunction.h"
 #include "Vertex.h"
+#include <dolfin/common/constants.h>
 #include <dolfin/common/MPI.h>
 #include <sstream>
 
