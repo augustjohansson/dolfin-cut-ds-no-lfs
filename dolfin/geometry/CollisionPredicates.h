@@ -344,3 +344,5 @@ namespace dolfin
   };
 
 } // namespace dolfin
+
+#endif
