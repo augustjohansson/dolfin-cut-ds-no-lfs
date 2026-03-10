@@ -46,8 +46,8 @@ def test_make_facets_view(square, cube):
     """Create view of facets"""
 
     def _check_facets_view(mesh):
-        marker = FacetFunction("size_t", mesh, 0)
         D = mesh.topology().dim()
+        marker = MeshFunction("size_t", mesh, D - 1, 0)
         mesh.init(D-1, D)
 
         c = 0
@@ -56,11 +56,11 @@ def test_make_facets_view(square, cube):
                 marker[f] = 1
                 c += 1
 
-        m2 = MeshViewMapping.create_from_marker(marker, 1)
+        m2 = MeshView.create(marker, 1)
 
         assert m2.num_cells() == c
-        assert m2.num_cells() == len(m2.topology().mapping.cell_map())
-        assert m2.num_vertices() == len(m2.topology().mapping.vertex_map())
+        assert m2.num_cells() == len(next(iter(m2.topology().mapping().values())).cell_map())
+        assert m2.num_vertices() == len(next(iter(m2.topology().mapping().values())).vertex_map())
 
     _check_facets_view(square)
     _check_facets_view(cube)
@@ -70,7 +70,8 @@ def test_make_cells_view(square, cube):
     """Create view of cells"""
 
     def _check_cells_view(mesh):
-        marker = CellFunction("size_t", mesh, 0)
+        D = mesh.topology().dim()
+        marker = MeshFunction("size_t", mesh, D, 0)
 
         ct = 0
         for c in cells(mesh):
@@ -78,11 +79,11 @@ def test_make_cells_view(square, cube):
                 marker[c] = 1
                 ct += 1
 
-        m2 = MeshViewMapping.create_from_marker(marker, 1)
+        m2 = MeshView.create(marker, 1)
 
         assert m2.num_cells() == ct
-        assert m2.num_cells() == len(m2.topology().mapping.cell_map())
-        assert m2.num_vertices() == len(m2.topology().mapping.vertex_map())
+        assert m2.num_cells() == len(next(iter(m2.topology().mapping().values())).cell_map())
+        assert m2.num_vertices() == len(next(iter(m2.topology().mapping().values())).vertex_map())
 
     _check_cells_view(square)
     _check_cells_view(cube)
@@ -91,7 +92,7 @@ def test_make_cells_view(square, cube):
 def test_make_edges_view(cube):
     """Create view of edges"""
 
-    marker = EdgeFunction("size_t", cube, 0)
+    marker = MeshFunction("size_t", cube, 1, 0)
     cube.init(1, 3)
 
     c = 0
@@ -106,8 +107,8 @@ def test_make_edges_view(cube):
             marker[e] = 1
             c += 1
 
-    m2 = MeshViewMapping.create_from_marker(marker, 1)
+    m2 = MeshView.create(marker, 1)
 
     assert m2.num_cells() == c
-    assert m2.num_cells() == len(m2.topology().mapping.cell_map())
-    assert m2.num_vertices() == len(m2.topology().mapping.vertex_map())
+    assert m2.num_cells() == len(next(iter(m2.topology().mapping().values())).cell_map())
+    assert m2.num_vertices() == len(next(iter(m2.topology().mapping().values())).vertex_map())
