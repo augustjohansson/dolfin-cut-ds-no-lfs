@@ -32,7 +32,6 @@ set(SOURCES
   intersect.cpp
   IntersectionConstruction.cpp
   MeshPointIntersection.cpp
-  Point.cpp
   predicates.cpp
   SimplexQuadrature.cpp
   SimplexQuadratureCompression.cpp
