@@ -27,7 +27,7 @@
 
 #include "CGALExactArithmetic.h"
 
-using namespace simpex;
+using namespace dolfin;
 
 //-----------------------------------------------------------------------------
 // Low-level collision detection predicates
@@ -1134,7 +1134,7 @@ bool CollisionPredicates::_collides_tetrahedron_tetrahedron_3d(const Point& p0,
 #include <dolfin/mesh/MeshGeometry.h>
 
 bool dolfin::CollisionPredicates::collides(const dolfin::MeshEntity& entity,
-                                           const simpex::Point& point)
+                                           const dolfin::Point& point)
 {
   // Only simplex meshes are supported
   const dolfin::MeshGeometry& g = entity.mesh().geometry();

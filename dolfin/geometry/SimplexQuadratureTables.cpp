@@ -3041,7 +3041,7 @@ static double ts_mult(std::vector<double>& u, double h, int n)
 // simpex::tables implementations
 // ---------------------------------------------------------------------------
 
-namespace simpex::tables {
+namespace dolfin::tables {
 
 RuleRef interval_rule_legendre(std::size_t order)
 {
@@ -3222,4 +3222,4 @@ RuleRef tetra_rule_keast(std::size_t order)
   return { e.first, e.second };
 }
 
-} // namespace simpex::tables
+} // namespace dolfin::tables

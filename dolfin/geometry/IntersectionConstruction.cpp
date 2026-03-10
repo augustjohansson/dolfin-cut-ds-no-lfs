@@ -31,7 +31,7 @@
 #include "predicates.h"
 #include "CGALExactArithmetic.h"
 
-using namespace simpex;
+using namespace dolfin;
 
 namespace
 {
@@ -770,7 +770,7 @@ IntersectionConstruction::intersection_tetrahedron_tetrahedron_3d(const Point& p
 #include <dolfin/mesh/MeshEntity.h>
 #include <dolfin/mesh/MeshGeometry.h>
 
-std::vector<simpex::Point>
+std::vector<dolfin::Point>
 dolfin::IntersectionConstruction::intersection(const dolfin::MeshEntity& entity_0,
                                                const dolfin::MeshEntity& entity_1)
 {
@@ -779,14 +779,14 @@ dolfin::IntersectionConstruction::intersection(const dolfin::MeshEntity& entity_
   const unsigned int* v0 = entity_0.entities(0);
   const unsigned int* v1 = entity_1.entities(0);
 
-  std::vector<simpex::Point> points_0(entity_0.dim() + 1);
-  std::vector<simpex::Point> points_1(entity_1.dim() + 1);
+  std::vector<dolfin::Point> points_0(entity_0.dim() + 1);
+  std::vector<dolfin::Point> points_1(entity_1.dim() + 1);
   for (std::size_t i = 0; i <= entity_0.dim(); ++i)
     points_0[i] = g0.point(v0[i]);
   for (std::size_t i = 0; i <= entity_1.dim(); ++i)
     points_1[i] = g1.point(v1[i]);
 
-  return simpex::IntersectionConstruction::intersection(points_0, points_1,
-                                                        g0.dim());
+  return IntersectionConstruction::intersection(points_0, points_1,
+                                                g0.dim());
 }
 //-----------------------------------------------------------------------------

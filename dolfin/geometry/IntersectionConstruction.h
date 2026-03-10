@@ -24,8 +24,11 @@
 #include <vector>
 #include "Point.h"
 
-namespace simpex
+namespace dolfin
 {
+  // Forward declaration
+  class MeshEntity;
+
   /// This class implements algorithms for computing pairwise
   /// intersections of simplices. The computed intersection is always
   /// convex and represented as a set of points s.t. the intersection
@@ -54,6 +57,11 @@ namespace simpex
     intersection(const std::vector<Point>& points_0,
                  const std::vector<Point>& points_1,
                  std::size_t gdim);
+
+    /// Compute intersection of two mesh entities.
+    static std::vector<Point>
+    intersection(const MeshEntity& entity_0,
+                 const MeshEntity& entity_1);
 
     //--- Low-level intersection construction functions ---
 
@@ -267,29 +275,6 @@ namespace simpex
 
   };
 
-} // namespace simpex
-
-// ============================================================================
-// dolfin::IntersectionConstruction
-//
-// Extends simpex::IntersectionConstruction with the high-level
-// MeshEntity overload used by the dolfin mesh module.
-// ============================================================================
-
-namespace dolfin
-{
-  // Forward declaration
-  class MeshEntity;
-
-  /// Intersection construction for dolfin mesh entities and simplex geometry.
-  class IntersectionConstruction : public simpex::IntersectionConstruction
-  {
-  public:
-    /// Compute intersection of two mesh entities.
-    static std::vector<simpex::Point>
-    intersection(const MeshEntity& entity_0,
-                 const MeshEntity& entity_1);
-  };
-}
+} // namespace dolfin
 
 #endif

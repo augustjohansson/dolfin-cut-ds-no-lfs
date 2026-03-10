@@ -30,7 +30,7 @@
 
 #include <Eigen/Dense>
 
-namespace simpex::compression
+namespace dolfin::compression
 {
 
 namespace
@@ -509,4 +509,4 @@ compress_irls(std::pair<std::vector<double>, std::vector<double>>& qr,
   return idx;
 }
 
-} // namespace simpex::compression
+} // namespace dolfin::compression
