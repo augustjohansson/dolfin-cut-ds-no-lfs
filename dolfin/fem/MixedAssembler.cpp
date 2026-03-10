@@ -123,18 +123,27 @@ void MixedAssembler::assemble_cells(
   // Check if form is a functional
   const bool is_cell_functional = (values && form_rank == 0) ? true : false;
 
+  // Number of meshes depends on the coefficients + trial/test-functions
+  std::size_t rn = form_rank;
+  std::size_t num_coeffs = ufc.form.num_coefficients();
+  dolfin_assert(num_coeffs==a.coefficients().size());
+  
   // Collect pointers to dof maps / id of the involved meshes
   std::vector<const GenericDofMap*> dofmaps;
-  std::vector<unsigned> mesh_id(form_rank);
-
+  std::vector<std::shared_ptr<const Mesh>> meshes(rn+num_coeffs);
+  // Meshes and dofmaps from Trial and Test functions if rank>0
   for (std::size_t i = 0; i < form_rank; ++i)
   {
-    mesh_id[i] = a.function_space(i)->mesh()->id();
+    meshes[i] = a.function_space(i)->mesh();
     dofmaps.push_back(a.function_space(i)->dofmap().get());
   }
+  // Meshes from coefficients otherwise
+  for (std::size_t i=0; i<num_coeffs; ++i)
+    if (a.coefficients()[i]->function_space())
+      meshes[form_rank+i] = a.coefficients()[i]->function_space()->mesh();
 
   // Vector to hold dof map for a cell
-  std::vector<ArrayView<const dolfin::la_index>> dofs(form_rank);
+  std::vector<ArrayView<const dolfin::la_index>> dofs(rn);
 
   // Cell integral
   ufc::cell_integral* integral = ufc.default_cell_integral.get();
@@ -148,9 +157,59 @@ void MixedAssembler::assemble_cells(
   Progress p(AssemblerBase::progress_message(A.rank(), "cells"),
              mesh.num_cells());
 
+  // Array storing coordinate dofs for restricting coefficients
+  std::vector<std::vector<double>> coefficient_coordinate_dofs(a.coefficients().size());
   auto mapping_map = mesh.topology().mapping();
   for (CellIterator cell(mesh); !cell.end(); ++cell)
   {
+    // Gather ufc_cells for all coefficients prior to restriction
+    std::vector<ufc::cell> ufc_cells;
+    for (std::size_t i=0; i<num_coeffs; ++i)
+    {
+      ufc::cell cell_i;
+      std::int32_t cell_index;
+      // Check if mesh from coefficient is a MeshView and if it is different than the integration domain
+      if (a.coefficients()[i]->function_space() && !(meshes[form_rank+i]->topology().mapping().empty()) && (meshes[form_rank+i]->id() != mesh.id()))
+      {
+        // Check if map exists
+        if (!mapping_map[meshes[form_rank+i]->id()])
+        {
+          mesh.build_mapping(meshes[form_rank+i]);
+          mapping_map = mesh.topology().mapping();
+        }
+        // Get map to integration domain
+        auto cell_map = mapping_map[meshes[form_rank+i]->id()]->cell_map();
+
+        // Get cell data from coefficient mesh
+        std::size_t codim_i = meshes[form_rank+i]->topology().dim() - mesh.topology().dim();
+        if(codim_i == 0)
+	      {
+          Cell parent_cell(*mapping_map[meshes[form_rank+i]->id()]->mesh(), cell_map[cell->index()]);
+          parent_cell.get_cell_data(cell_i);
+          parent_cell.get_coordinate_dofs(coefficient_coordinate_dofs[i]);         
+        }
+	      else if(codim_i == 1) // 2D-1D or 3D-2D (cells - facets relationships)
+      	{
+          const std::size_t D = meshes[form_rank+i]->topology().dim();
+          meshes[form_rank+i]->init(D);
+          meshes[form_rank+i]->init(D - 1, D);
+
+          Facet mesh_facet(*mapping_map[meshes[form_rank+i]->id()]->mesh(), cell_map[cell->index()]);
+          Cell mesh_cell(*mapping_map[meshes[form_rank+i]->id()]->mesh(), mesh_facet.entities(D)[0]);
+          mesh_cell.get_cell_data(cell_i);
+          mesh_cell.get_coordinate_dofs(coefficient_coordinate_dofs[i]);
+      	}
+	      else if(codim_i == 2) // 3D-1D (cells - edges relationships)
+	        std::cout << "[MixedAssembler] codim 2 - Not implemented (yet)" << std::endl;
+        }
+      else
+      {
+        cell->get_cell_data(cell_i);
+        cell->get_coordinate_dofs(coefficient_coordinate_dofs[i]);
+      }
+      ufc_cells.push_back(cell_i);
+    }
+
     // Get integral for sub domain (if any)
     if (use_domains)
       integral = ufc.get_cell_integral((*domains)[*cell]);
@@ -161,55 +220,57 @@ void MixedAssembler::assemble_cells(
 
     // Check that cell is not a ghost
     dolfin_assert(!cell->is_ghost());
-
-    // Update to current cell
-    cell->get_cell_data(ufc_cell);
-    cell->get_coordinate_dofs(coordinate_dofs);
-
-    ufc.update(*cell, coordinate_dofs, ufc_cell,
-               integral->enabled_coefficients());
-
+    
     // Get local-to-global dof maps for cell
     bool empty_dofmap = false;
-    std::vector<std::vector<std::size_t>> cell_index(form_rank);
+    std::vector<std::vector<std::size_t>> cell_index(rn+num_coeffs);
     // Mixed-dimensional
-    std::vector<std::size_t> codim(form_rank);
+    std::vector<std::size_t> codim(rn+num_coeffs);
     std::vector<int> local_facets;
-
-    for (size_t i = 0; i < form_rank; ++i)
+    for (size_t i = 0; i < rn+num_coeffs; ++i)
     {
       cell_index[i].push_back(cell->index());
-
-      if (mesh_id[i] != mesh.id() && mapping_map[mesh_id[i]])
+      if (meshes[i] && meshes[i]->id() != mesh.id())
       {
-	auto mapping = mapping_map[mesh_id[i]];
-	dolfin_assert(mapping->mesh()->id() == mesh_id[i]);
+        if (!mapping_map[meshes[i]->id()])
+        {
+          mesh.build_mapping(meshes[i]);
+          mapping_map = mesh.topology().mapping();
+        }
+        auto mapping = mapping_map[meshes[i]->id()];
+        dolfin_assert(mapping->mesh()->id() == meshes[i]->id());
 
-	codim[i] = mapping->mesh()->topology().dim() - mesh.topology().dim();
-	if(codim[i] == 0)
-	  cell_index[i][0] = mapping->cell_map()[cell->index()];
-	else if(codim[i] == 1) // 2D-1D or 3D-2D (cells - facets relationships)
-	{
-	  const std::size_t D = mapping->mesh()->topology().dim();
-	  mapping->mesh()->init(D);
-	  mapping->mesh()->init(D - 1, D);
+        codim[i] = mapping->mesh()->topology().dim() - mesh.topology().dim();
+        if(codim[i] == 0)
+          cell_index[i][0] = mapping->cell_map()[cell->index()];
+        else if(codim[i] == 1) // 2D-1D or 3D-2D (cells - facets relationships)
+        {
+          const std::size_t D = mapping->mesh()->topology().dim();
+          mapping->mesh()->init(D);
+          mapping->mesh()->init(D - 1, D);
 
-	  Facet mesh_facet(*(mapping->mesh()), mapping->cell_map()[cell->index()]);
-	  for(std::size_t j=0; j<mesh_facet.num_entities(D);j++)
-	  {
-	    Cell mesh_cell(*(mapping->mesh()), mesh_facet.entities(D)[j]);
-	    local_facets.push_back(mesh_cell.index(mesh_facet));
+          Facet mesh_facet(*(mapping->mesh()), mapping->cell_map()[cell->index()]);
+          for(std::size_t j=0; j<mesh_facet.num_entities(D);j++)
+          {
+            Cell mesh_cell(*(mapping->mesh()), mesh_facet.entities(D)[j]);
+            local_facets.push_back(mesh_cell.index(mesh_facet));
 
-	    if(j==0)
-	      cell_index[i][0] = mesh_cell.index();
-	    else
-	      cell_index[i].push_back(mesh_cell.index());
-	  }
-	}
-	else if(codim[i] == 2) // 3D-1D (cells - edges relationships)
-	  std::cout << "[MixedAssembler] codim 2 - Not implemented (yet)" << std::endl;
+            if(j==0)
+              cell_index[i][0] = mesh_cell.index();
+            else
+              cell_index[i].push_back(mesh_cell.index());
+          }
+        }
+        else if(codim[i] == 2) // 3D-1D (cells - edges relationships)
+          std::cout << "[MixedAssembler] codim 2 - Not implemented (yet)" << std::endl;
       }
     }
+
+    // Get coordinate dofs of integration domain cell
+    cell->get_coordinate_dofs(coordinate_dofs);
+    // Restrict coefficients to cell
+    ufc.update(*cell, coefficient_coordinate_dofs, ufc_cells,
+               integral->enabled_coefficients());
 
     if (empty_dofmap)
       continue;
@@ -221,7 +282,7 @@ void MixedAssembler::assemble_cells(
 				coordinate_dofs.data(),
 				ufc_cell.orientation);
 
-      for(std::size_t i=0; i<form_rank; ++i)
+      for(std::size_t i=0; i<rn; ++i)
       {
 	auto dmap = dofmaps[i]->cell_dofs(cell_index[i][0]);
 	dofs[i].set(dmap.size(), dmap.data());
@@ -242,7 +303,8 @@ void MixedAssembler::assemble_cells(
 				  ufc_cell.orientation,
 				  local_facets[j]); // local index of the lower dim entity involved
 
-	for(std::size_t i=0; i<form_rank; ++i)
+
+        for(std::size_t i=0; i<rn; ++i)
 	{
           std::size_t jidx = (cell_index[i].size() > 1) ? j:0;
 
@@ -274,7 +336,7 @@ void MixedAssembler::assemble_cells(
 	}
 
         // TO CHECK/IMPROVE : If we have contributions from adjacent cells from different meshes
-        if(local_facets.size() > 1 && cell_index[0].size() <= 1 && cell_index[form_rank - 1].size() <= 1)
+        if(local_facets.size() > 1 && cell_index[0].size() <= 1 && cell_index[rn - 1].size() <= 1)
           for(auto& m: ufc.A)
             m/=local_facets.size();
 

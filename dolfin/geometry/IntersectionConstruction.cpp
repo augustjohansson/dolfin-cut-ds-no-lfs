@@ -29,6 +29,7 @@
 #include "GeometryTools.h"
 #include "IntersectionConstruction.h"
 #include "predicates.h"
+#include "CGALExactArithmetic.h"
 
 using namespace simpex;
 
