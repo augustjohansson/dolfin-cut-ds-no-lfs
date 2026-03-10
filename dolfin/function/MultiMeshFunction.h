@@ -24,6 +24,7 @@
 #include <memory>
 #include <boost/ptr_container/ptr_map.hpp>
 #include <dolfin/common/Variable.h>
+#include <dolfin/common/Array.h>
 
 namespace dolfin
 {
@@ -92,7 +93,7 @@ namespace dolfin
     ///         Function (part) number i
     ///         bool deepcopy flag
     std::shared_ptr<const Function> part(std::size_t i, bool deepcopy) const;
-    
+
     /// Return vector of expansion coefficients (non-const version)
     ///
     /// *Returns*
