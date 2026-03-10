@@ -22,14 +22,10 @@
 #define __INTERSECTION_CONSTRUCTION_H
 
 #include <vector>
-#include <dolfin/log/log.h>
 #include "Point.h"
 
-namespace dolfin
+namespace simpex
 {
-  // Forward declarations
-  class MeshEntity;
-
   /// This class implements algorithms for computing pairwise
   /// intersections of simplices. The computed intersection is always
   /// convex and represented as a set of points s.t. the intersection
@@ -38,22 +34,6 @@ namespace dolfin
   class IntersectionConstruction
   {
   public:
-
-    /// Compute intersection of two entities.
-    ///
-    /// *Arguments*
-    ///     entity_0 (_MeshEntity_)
-    ///         The first entity.
-    ///     entity_1 (_MeshEntity_)
-    ///         The second entity.
-    ///
-    /// *Returns*
-    ///     std::vector<Pointdouble>
-    ///         A vector of points s.t. the intersection is the convex hull of
-    ///         these points.
-    static std::vector<Point>
-    intersection(const MeshEntity& entity_0,
-                 const MeshEntity& entity_1);
 
     /// Compute intersection of two entities.
     /// This version takes two vectors of points representing the entities.
@@ -276,31 +256,6 @@ namespace dolfin
 				      const Point& q1);
 
     static std::vector<Point>
-    _intersection_triangle_triangle_3d(const Point& p0,
-				       const Point& p1,
-				       const Point& p2,
-				       const Point& q0,
-				       const Point& q1,
-				       const Point& q2);
-
-    static std::vector<Point>
-    _intersection_tetrahedron_segment_3d(const Point& p0,
-					 const Point& p1,
-					 const Point& p2,
-					 const Point& p3,
-					 const Point& q0,
-					 const Point& q1);
-
-    static std::vector<Point>
-    _intersection_tetrahedron_triangle_3d(const Point& p0,
-					  const Point& p1,
-					  const Point& p2,
-					  const Point& p3,
-					  const Point& q0,
-					  const Point& q1,
-					  const Point& q2);
-
-    static std::vector<Point>
     _intersection_tetrahedron_tetrahedron_3d(const Point& p0,
 					     const Point& p1,
 					     const Point& p2,
@@ -312,6 +267,29 @@ namespace dolfin
 
   };
 
+} // namespace simpex
+
+// ============================================================================
+// dolfin::IntersectionConstruction
+//
+// Extends simpex::IntersectionConstruction with the high-level
+// MeshEntity overload used by the dolfin mesh module.
+// ============================================================================
+
+namespace dolfin
+{
+  // Forward declaration
+  class MeshEntity;
+
+  /// Intersection construction for dolfin mesh entities and simplex geometry.
+  class IntersectionConstruction : public simpex::IntersectionConstruction
+  {
+  public:
+    /// Compute intersection of two mesh entities.
+    static std::vector<simpex::Point>
+    intersection(const MeshEntity& entity_0,
+                 const MeshEntity& entity_1);
+  };
 }
 
 #endif

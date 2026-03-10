@@ -25,317 +25,183 @@
 #define __POINT_H
 
 #include <array>
+#include <cassert>
 #include <cmath>
-#include <iostream>
-#include <dolfin/log/log.h>
-#include <dolfin/common/Array.h>
+#include <cstddef>
+#include <string>
+#include <ostream>
+#include <sstream>
 
-namespace dolfin
+namespace simpex
 {
-  /// A Point represents a point in :math:`\mathbb{R}^3` with
-  /// coordinates :math:`x, y, z,` or alternatively, a vector in
-  /// :math:`\mathbb{R}^3`, supporting standard operations like the
-  /// norm, distances, scalar and vector products etc.
+  // Optional: aggressive inlining hint for hot builds
+#if defined(_MSC_VER)
+#define SIMPEX_FORCEINLINE __forceinline
+#elif defined(__GNUC__) || defined(__clang__)
+#define SIMPEX_FORCEINLINE inline __attribute__((always_inline))
+#else
+#define SIMPEX_FORCEINLINE inline
+#endif
 
   class Point
   {
   public:
+    // Construction / assignment: keep trivial where possible
+    constexpr explicit Point(double x = 0.0, double y = 0.0, double z = 0.0) noexcept
+      : _x{{x, y, z}} {}
 
-    /// Create a point at (x, y, z). Default value (0, 0, 0).
-    ///
-    /// @param    x (double)
-    ///         The x-coordinate.
-    /// @param    y (double)
-    ///         The y-coordinate.
-    /// @param    z (double)
-    ///         The z-coordinate.
-    explicit Point(const double x=0.0, const double y=0.0, const double z=0.0)
-      : _x({{x, y, z}}) {}
-
-    /// Create point from array
-    ///
-    /// @param    dim (std::size_t)
-    ///         Dimension of the array.
-    /// @param    x (double)
-    ///         The array to create a Point from.
-    Point(std::size_t dim, const double* x) : _x({{0.0, 0.0, 0.0}})
+    // Copy the first dim entries (dim expected <= 3). Keep asserts in debug.
+    explicit Point(std::size_t dim, const double* x) noexcept : _x{{0.0, 0.0, 0.0}}
     {
-      for (std::size_t i = 0; i < dim; i++)
-        _x[i] = x[i];
+      assert(dim <= 3);
+      assert(x != nullptr || dim == 0);
+      for (std::size_t i = 0; i < dim; ++i) _x[i] = x[i];
     }
 
-    /// Create point from Array
-    ///
-    /// @param    x (Array<double>)
-    ///         Array of coordinates.
-    Point(const Array<double>& x) : _x({{0.0, 0.0, 0.0}})
-    {
-      for (std::size_t i = 0; i < x.size(); i++)
-        _x[i] = x[i];
-    }
+    constexpr Point(const Point&) noexcept = default;
+    constexpr Point(Point&&) noexcept = default;
+    constexpr Point& operator=(const Point&) noexcept = default;
+    constexpr Point& operator=(Point&&) noexcept = default;
+    ~Point() = default;
 
-    /// Copy constructor
-    ///
-    /// @param    p (_Point_)
-    ///         The object to be copied.
-    Point(const Point& p) : _x({{p._x[0], p._x[1], p._x[2]}}) {}
+    // Element access
+    SIMPEX_FORCEINLINE double& operator[](std::size_t i) noexcept
+    { assert(i < 3); return _x[i]; }
 
-    /// Destructor
-    ~Point() {}
+    SIMPEX_FORCEINLINE const double& operator[](std::size_t i) const noexcept
+    { assert(i < 3); return _x[i]; }
 
-    /// Return address of coordinate in direction i
-    ///
-    /// @param    i (std::size_t)
-    ///         Direction.
-    ///
-    /// *Returns*
-    /// @return    double
-    ///         Address of coordinate in the given direction.
-    double& operator[] (std::size_t i)
-    { dolfin_assert(i < 3); return _x[i]; }
+    // Named coordinates
+    SIMPEX_FORCEINLINE constexpr double x() const noexcept { return _x[0]; }
+    SIMPEX_FORCEINLINE constexpr double y() const noexcept { return _x[1]; }
+    SIMPEX_FORCEINLINE constexpr double z() const noexcept { return _x[2]; }
 
-    /// Return coordinate in direction i
-    ///
-    /// @param    i (std::size_t)
-    ///         Direction.
-    ///
-    /// @return    double
-    ///         The coordinate in the given direction.
-    double operator[] (std::size_t i) const
-    { dolfin_assert(i < 3); return _x[i]; }
+    // Raw pointer access
+    SIMPEX_FORCEINLINE double* coordinates() noexcept { return _x.data(); }
+    SIMPEX_FORCEINLINE const double* coordinates() const noexcept { return _x.data(); }
 
-    /// Return x-coordinate
-    ///
-    /// @return    double
-    ///         The x-coordinate.
-    double x() const
-    { return _x[0]; }
+    SIMPEX_FORCEINLINE constexpr std::array<double, 3> array() const noexcept { return _x; }
 
-    /// Return y-coordinate
-    ///
-    /// @return     double
-    ///         The y-coordinate.
-    double y() const
-    { return _x[1]; }
+    // Arithmetic
+    SIMPEX_FORCEINLINE constexpr Point operator+(const Point& p) const noexcept
+    { return Point(_x[0] + p._x[0], _x[1] + p._x[1], _x[2] + p._x[2]); }
 
-    /// Return z-coordinate
-    ///
-    /// @return    double
-    ///         The z-coordinate.
-    double z() const
-    { return _x[2]; }
+    SIMPEX_FORCEINLINE constexpr Point operator-(const Point& p) const noexcept
+    { return Point(_x[0] - p._x[0], _x[1] - p._x[1], _x[2] - p._x[2]); }
 
-    /// Return coordinate array
-    ///
-    /// @return double*
-    ///         The coordinates.
-    double* coordinates()
-    { return _x.data(); }
-
-    /// Return coordinate array (const. version)
-    ///
-    /// @return double*
-    ///         The coordinates.
-    const double* coordinates() const
-    { return _x.data(); }
-
-    /// Return copy of coordinate array
-    ///
-    /// *Returns*
-    ///     list of double
-    ///         The coordinates.
-    std::array<double, 3> array() const
-    {
-      return _x;
-    }
-
-    /// Compute sum of two points
-    /// @param p (Point)
-    /// @return Point
-    Point operator+ (const Point& p) const
-    { Point q(_x[0] + p._x[0], _x[1] + p._x[1], _x[2] + p._x[2]); return q; }
-
-    /// Compute difference of two points
-    /// @param p (Point)
-    /// @return Point
-    Point operator- (const Point& p) const
-    { Point q(_x[0] - p._x[0], _x[1] - p._x[1], _x[2] - p._x[2]); return q; }
-
-    /// Add given point
-    const Point& operator+= (const Point& p)
+    SIMPEX_FORCEINLINE Point& operator+=(const Point& p) noexcept
     { _x[0] += p._x[0]; _x[1] += p._x[1]; _x[2] += p._x[2]; return *this; }
 
-    /// Subtract given point
-    const Point& operator-= (const Point& p)
+    SIMPEX_FORCEINLINE Point& operator-=(const Point& p) noexcept
     { _x[0] -= p._x[0]; _x[1] -= p._x[1]; _x[2] -= p._x[2]; return *this; }
 
-    /// Unary minus
-    Point operator- ()
-    { Point p(-_x[0], -_x[1], -_x[2]); return p; }
+    SIMPEX_FORCEINLINE constexpr Point operator-() const noexcept
+    { return Point(-_x[0], -_x[1], -_x[2]); }
 
-    /// Multiplication with scalar
-    Point operator* (double a) const
-    { Point p(a*_x[0], a*_x[1], a*_x[2]); return p; }
+    SIMPEX_FORCEINLINE constexpr Point operator*(double a) const noexcept
+    { return Point(a*_x[0], a*_x[1], a*_x[2]); }
 
-    /// Incremental multiplication with scalar
-    const Point& operator*= (double a)
+    SIMPEX_FORCEINLINE Point& operator*=(double a) noexcept
     { _x[0] *= a; _x[1] *= a; _x[2] *= a; return *this; }
 
-    /// Division by scalar
-    Point operator/ (double a) const
-    { Point p(_x[0]/a, _x[1]/a, _x[2]/a); return p; }
+    SIMPEX_FORCEINLINE Point operator/(double a) const noexcept
+    { return Point(_x[0]/a, _x[1]/a, _x[2]/a); }
 
-    /// Incremental division by scalar
-    const Point& operator/= (double a)
+    SIMPEX_FORCEINLINE Point& operator/=(double a) noexcept
     { _x[0] /= a; _x[1] /= a; _x[2] /= a; return *this; }
 
-    /// Assignment operator
-    const Point& operator= (const Point& p)
-    { _x = {{p._x[0], p._x[1], p._x[2]}}; return *this; }
+    SIMPEX_FORCEINLINE constexpr bool operator==(const Point& p) const noexcept
+    { return _x[0] == p._x[0] && _x[1] == p._x[1] && _x[2] == p._x[2]; }
 
-    /// Equal to operator
-    bool operator== (const Point& p) const
-    { return _x == p._x; }
+    SIMPEX_FORCEINLINE constexpr bool operator!=(const Point& p) const noexcept
+    { return !(*this == p); }
 
-    /// Not equal to operator
-    bool operator!= (const Point& p) const
-    { return _x != p._x; }
+    SIMPEX_FORCEINLINE constexpr double squared_distance(const Point& p) const noexcept
+    {
+      const double dx = _x[0] - p._x[0];
+      const double dy = _x[1] - p._x[1];
+      const double dz = _x[2] - p._x[2];
+      return dx*dx + dy*dy + dz*dz;
+    }
 
-    /// Compute squared distance to given point
-    ///
-    /// @param p (Point)
-    ///         The point to compute distance to.
-    ///
-    /// @return double
-    ///         The squared distance.
-    ///
-    double squared_distance(const Point& p) const;
+    SIMPEX_FORCEINLINE double distance(const Point& p) const noexcept
+    { return std::sqrt(squared_distance(p)); }
 
-    /// Compute distance to given point
-    ///
-    /// @param    p (Point)
-    ///         The point to compute distance to.
-    ///
-    /// @return   double
-    ///         The distance.
-    ///
-    /// @code{.cpp}
-    ///
-    ///         Point p1(0, 4, 0);
-    ///         Point p2(2, 0, 4);
-    ///         info("%g", p1.distance(p2));
-    ///
-    /// @endcode
-    inline double distance(const Point& p) const
-    { return sqrt(squared_distance(p)); }
-
-    /// Compute norm of point representing a vector from the origin
-    ///
-    /// @return     double
-    ///         The (Euclidean) norm of the vector from the origin to
-    ///         the point.
-    ///
-    /// @code{.cpp}
-    ///
-    ///         Point p(1.0, 2.0, 2.0);
-    ///         info("%g", p.norm());
-    ///
-    /// @endcode
-    double norm() const
-    { return std::sqrt(_x[0]*_x[0] + _x[1]*_x[1] + _x[2]*_x[2]); }
-
-    /// Compute norm of point representing a vector from the origin
-    ///
-    /// @return     double
-    ///         The squared (Euclidean) norm of the vector from the
-    ///         origin of the point.
-    ///
-    /// @code{.cpp}
-    ///
-    ///         Point p(1.0, 2.0, 2.0);
-    ///         info("%g", p.squared_norm());
-    ///
-    /// @endcode
-    double squared_norm() const
+    SIMPEX_FORCEINLINE constexpr double squared_norm() const noexcept
     { return _x[0]*_x[0] + _x[1]*_x[1] + _x[2]*_x[2]; }
 
-    /// Compute cross product with given vector
-    ///
-    /// @param    p (_Point_)
-    ///         Another point.
-    ///
-    /// @return     Point
-    ///         The cross product.
-    const Point cross(const Point& p) const;
+    SIMPEX_FORCEINLINE double norm() const noexcept
+    { return std::sqrt(squared_norm()); }
 
-    /// Compute dot product with given vector
-    ///
-    /// @param    p (Point)
-    ///         Another point.
-    ///
-    /// @return    double
-    ///         The dot product.
-    ///
-    /// @code{.cpp}
-    ///
-    ///         Point p1(1.0, 4.0, 8.0);
-    ///         Point p2(2.0, 0.0, 0.0);
-    ///         info("%g", p1.dot(p2));
-    ///
-    /// @endcode
-    double dot(const Point& p) const;
-
-    /// Rotate around a given axis
-    ///
-    /// @param    a (Point)
-    ///         The axis to rotate around. Must be unit length.
-    /// @param    theta (double)
-    ///         The rotation angle.
-    ///
-    /// @return     Point
-    ///         The rotated point.
-    Point rotate(const Point& a, double theta) const;
-
-    // Note: Not a subclass of Variable for efficiency!
-
-    /// Return informal string representation (pretty-print)
-    ///
-    /// @param    verbose (bool)
-    ///         Flag to turn on additional output.
-    ///
-    /// @return     std::string
-    ///         An informal representation of the function space.
-    std::string str(bool verbose=false) const;
-
-
-    // Compare
-    bool operator<(const Point& a) const
+    SIMPEX_FORCEINLINE constexpr Point cross(const Point& p) const noexcept
     {
-      if (_x[0] != a[0]) {
-	return _x[0] < a[0];
-      }
+      return Point(
+		   _x[1]*p._x[2] - _x[2]*p._x[1],
+		   _x[2]*p._x[0] - _x[0]*p._x[2],
+		   _x[0]*p._x[1] - _x[1]*p._x[0]
+		   );
+    }
 
-      if (_x[1] != a[1]) {
-	return _x[1] < a[1];
-      }
+    SIMPEX_FORCEINLINE constexpr double dot(const Point& p) const noexcept
+    { return _x[0]*p._x[0] + _x[1]*p._x[1] + _x[2]*p._x[2]; }
 
-      return _x[2] < a[2];
+    Point rotate(const Point& a, double theta) const
+    {
+      assert(std::abs(a.norm() - 1.0) < 3.0e-16);
+
+      const double s = std::sin(theta);
+      const double c = std::cos(theta);
+      const double one_c = 1.0 - c;
+
+      const double ax = a[0], ay = a[1], az = a[2];
+      const double x  = _x[0], y  = _x[1], z  = _x[2];
+
+      const double dot = ax*x + ay*y + az*z;
+
+      const double cx = ay*z - az*y;
+      const double cy = az*x - ax*z;
+      const double cz = ax*y - ay*x;
+
+      return Point(x*c + cx*s + ax*dot*one_c,
+		   y*c + cy*s + ay*dot*one_c,
+		   z*c + cz*s + az*dot*one_c);
+    }
+
+    std::string str() const
+    {
+      std::stringstream ss;
+      ss << x() << ' ' << y() << ' ' << z();
+      return ss.str();
+    }
+
+    // Backwards-compatibility overload (verbose parameter is ignored).
+    std::string str(bool /*verbose*/) const { return str(); }
+
+    // Lexicographic less-than for use in ordered containers.
+    SIMPEX_FORCEINLINE constexpr bool operator<(const Point& a) const noexcept
+    {
+      if (_x[0] != a._x[0]) return _x[0] < a._x[0];
+      if (_x[1] != a._x[1]) return _x[1] < a._x[1];
+      return _x[2] < a._x[2];
     }
 
   private:
-
     std::array<double, 3> _x;
-
   };
 
-  /// Multiplication with scalar
-  inline Point operator*(double a, const Point& p)
-  { return p*a; }
+  SIMPEX_FORCEINLINE constexpr Point operator*(double a, const Point& p) noexcept
+  { return p * a; }
 
-  /// Output of Point to stream
   inline std::ostream& operator<<(std::ostream& stream, const Point& point)
-  { stream << point.str(false); return stream; }
+  { return stream << point.x() << ' ' << point.y() << ' ' << point.z(); }
 
+} // namespace simpex
+
+// Backwards-compatibility alias so that existing dolfin code using
+// dolfin::Point continues to compile without modification.
+namespace dolfin
+{
+  using Point = simpex::Point;
 }
 
 #endif

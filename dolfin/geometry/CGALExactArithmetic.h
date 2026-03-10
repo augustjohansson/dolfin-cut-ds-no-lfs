@@ -18,66 +18,46 @@
 // First added:  2016-05-03
 // Last changed: 2017-10-26
 //
-// Developer note:
-//
-// This file contains reference implementations of collision detection
-// algorithms using exact arithmetic with CGAL. It is not included in
-// a normal build but is used as a reference for verification and
-// debugging of the inexact DOLFIN collision detection algorithms.
-// To enable, set the option DOLFIN_ENABLE_GEOMETRY_DEBUGGING when
-// configuring DOLFIN
 
 #ifndef __CGAL_EXACT_ARITHMETIC_H
 #define __CGAL_EXACT_ARITHMETIC_H
 
-#ifndef DOLFIN_ENABLE_GEOMETRY_DEBUGGING
+#ifndef SIMPEX_ENABLE_GEOMETRY_DEBUGGING
 
 // Comparison macro just bypasses CGAL and test when not enabled
-#define CHECK_CGAL(RESULT_DOLFIN, RESULT_CGAL) RESULT_DOLFIN
+#define CHECK_CGAL(RESULT_SIMPEX, RESULT_CGAL) RESULT_SIMPEX
 
-#define CGAL_INTERSECTION_CHECK(RESULT_DOLFIN, RESULT_CGAL) RESULT_DOLFIN
+#define CGAL_INTERSECTION_CHECK(RESULT_SIMPEX, RESULT_CGAL) RESULT_SIMPEX
 
 #else
 
-#define CGAL_CHECK_TOLERANCE 1e-10
-
 #include "Point.h"
 #include "predicates.h"
-#include <dolfin/log/log.h>
-#include <dolfin/log/LogStream.h>
-#include <dolfin/math/basic.h>
 #include <vector>
 #include <algorithm>
-#include <sstream>
-#include <iomanip>
+#include <cstdio>
+#include <cassert>
 
-// Check that results from DOLFIN and CGAL match
-namespace dolfin
+// Check that results from SIMPEX and CGAL match
+namespace simpex
 {
   //---------------------------------------------------------------------------
-  // Functions to compare results between DOLFIN and CGAL
+  // Functions to compare results between SIMPEX and CGAL
   //---------------------------------------------------------------------------
   inline bool
-  check_cgal(bool result_dolfin,
+  check_cgal(bool result_simpex,
 	     bool result_cgal,
 	     const std::string& function)
   {
-    if (result_dolfin != result_cgal)
+    if (result_simpex != result_cgal)
     {
-      // Convert results to strings
-      std::stringstream s_dolfin;
-      std::stringstream s_cgal;
-      s_dolfin << result_dolfin;
-      s_cgal << result_cgal;
-
-      // Issue error
-      dolfin_error("CGALExactArithmetic.h",
-                   "verify geometric predicate with exact types",
-                   "Error in predicate %s\n DOLFIN: %s\n CGAL: %s",
-                   function.c_str(), s_dolfin.str().c_str(), s_cgal.str().c_str());
+      // Print mismatch details before asserting
+      std::printf("CGAL mismatch in %s: SIMPEX=%d CGAL=%d\n",
+                  function.c_str(), (int)result_simpex, (int)result_cgal);
+      assert(false); // SIMPEX and CGAL disagree on predicate result
     }
 
-    return result_dolfin;
+    return result_simpex;
   }
   //-----------------------------------------------------------------------------
   inline
@@ -88,10 +68,9 @@ namespace dolfin
   {
     if (dolfin_result.size() != cgal_result.size())
     {
-      dolfin_error("CGALExactArithmetic.h",
-		   "verify intersection",
-		   "Intersection function %s and CGAL give different size of point sets (%d vs %d)",
-		   function.c_str(), dolfin_result.size(), cgal_result.size());
+      std::printf("Intersection size mismatch in %s: simpex=%zu cgal=%zu\n",
+                  function.c_str(), dolfin_result.size(), cgal_result.size());
+      assert(false); // intersection point-set size differs between SIMPEX and CGAL
     }
 
     for (const Point& p1 : dolfin_result)
@@ -107,24 +86,24 @@ namespace dolfin
       }
 
       if (!found)
-	dolfin_error("CGALExactArithmetic.h",
-		     "verify intersection construction result",
-		     "Error in intersection function %s\nPoint (%f, %f, %f) in dolfin result not found",
-		     function.c_str(), p1[0], p1[1], p1[2]);
+      {
+        std::printf("Point (%f,%f,%f) from SIMPEX not found in CGAL result (%s)\n",
+                    p1[0], p1[1], p1[2], function.c_str());
+        assert(false); // intersection point present in SIMPEX but not in CGAL result
+      }
     }
     return dolfin_result;
   }
-} // end namespace dolfin
+} // end namespace simpex
 //-----------------------------------------------------------------------------
 // Comparison macro that calls comparison function
-#define CHECK_CGAL(RESULT_DOLFIN, RESULT_CGAL) \
-  check_cgal(RESULT_DOLFIN, RESULT_CGAL, __FUNCTION__)
+#define CHECK_CGAL(RESULT_SIMPEX, RESULT_CGAL) \
+  check_cgal(RESULT_SIMPEX, RESULT_CGAL, __FUNCTION__)
 
-#define CGAL_INTERSECTION_CHECK(RESULT_DOLFIN, RESULT_CGAL) \
-  cgal_intersection_check(RESULT_DOLFIN, RESULT_CGAL, __FUNCTION__)
+#define CGAL_INTERSECTION_CHECK(RESULT_SIMPEX, RESULT_CGAL) \
+  cgal_intersection_check(RESULT_SIMPEX, RESULT_CGAL, __FUNCTION__)
 
 // CGAL includes
-#define CGAL_HEADER_ONLY
 #include <CGAL/Cartesian.h>
 #include <CGAL/Quotient.h>
 #include <CGAL/MP_Float.h>
@@ -138,10 +117,24 @@ namespace dolfin
 #include <CGAL/Polyhedron_3.h>
 #include <CGAL/convex_hull_3.h>
 #include <CGAL/intersections.h>
-#include <CGAL/intersection_of_Polyhedra_3.h>
 #include <CGAL/Exact_predicates_exact_constructions_kernel.h>
 #include <CGAL/Triangulation_2.h>
 #include <CGAL/Nef_polyhedron_3.h>
+
+// CGAL 6.x uses std::optional/std::variant for intersection results.
+// CGAL 5.x uses boost::optional/boost::variant.
+// Provide a uniform cgal_get_if<T> that works for both versions.
+#if CGAL_VERSION_NR >= 1060100000
+// CGAL >= 6.1 uses std::variant
+#include <variant>
+template<typename T, typename V>
+static const T* cgal_get_if(const V* v) { return std::get_if<T>(v); }
+#else
+// CGAL < 6.1 uses boost::variant
+#include <boost/variant.hpp>
+template<typename T, typename V>
+static const T* cgal_get_if(const V* v) { return boost::get<T>(v); }
+#endif
 
 namespace
 {
@@ -178,50 +171,50 @@ namespace
     return Point_3(a, b, c);
   }
   //-----------------------------------------------------------------------------
-  inline Point_2 convert_to_cgal_2d(const dolfin::Point& p)
+  inline Point_2 convert_to_cgal_2d(const simpex::Point& p)
   {
     return Point_2(p[0], p[1]);
   }
   //-----------------------------------------------------------------------------
-  inline Point_3 convert_to_cgal_3d(const dolfin::Point& p)
+  inline Point_3 convert_to_cgal_3d(const simpex::Point& p)
   {
     return Point_3(p[0], p[1], p[2]);
   }
   //-----------------------------------------------------------------------------
-  inline Segment_2 convert_to_cgal_2d(const dolfin::Point& a,
-				      const dolfin::Point& b)
+  inline Segment_2 convert_to_cgal_2d(const simpex::Point& a,
+				      const simpex::Point& b)
   {
     return Segment_2(convert_to_cgal_2d(a), convert_to_cgal_2d(b));
   }
   //-----------------------------------------------------------------------------
-  inline Segment_3 convert_to_cgal_3d(const dolfin::Point& a,
-				      const dolfin::Point& b)
+  inline Segment_3 convert_to_cgal_3d(const simpex::Point& a,
+				      const simpex::Point& b)
   {
     return Segment_3(convert_to_cgal_3d(a), convert_to_cgal_3d(b));
   }
   //-----------------------------------------------------------------------------
-  inline Triangle_2 convert_to_cgal_2d(const dolfin::Point& a,
-				       const dolfin::Point& b,
-				       const dolfin::Point& c)
+  inline Triangle_2 convert_to_cgal_2d(const simpex::Point& a,
+				       const simpex::Point& b,
+				       const simpex::Point& c)
   {
     return Triangle_2(convert_to_cgal_2d(a),
 		      convert_to_cgal_2d(b),
 		      convert_to_cgal_2d(c));
   }
   //-----------------------------------------------------------------------------
-  inline Triangle_3 convert_to_cgal_3d(const dolfin::Point& a,
-				       const dolfin::Point& b,
-				       const dolfin::Point& c)
+  inline Triangle_3 convert_to_cgal_3d(const simpex::Point& a,
+				       const simpex::Point& b,
+				       const simpex::Point& c)
   {
     return Triangle_3(convert_to_cgal_3d(a),
 		      convert_to_cgal_3d(b),
 		      convert_to_cgal_3d(c));
   }
   //-----------------------------------------------------------------------------
-  inline Tetrahedron_3 convert_to_cgal_3d(const dolfin::Point& a,
-					  const dolfin::Point& b,
-					  const dolfin::Point& c,
-					  const dolfin::Point& d)
+  inline Tetrahedron_3 convert_to_cgal_3d(const simpex::Point& a,
+					  const simpex::Point& b,
+					  const simpex::Point& c,
+					  const simpex::Point& d)
   {
     return Tetrahedron_3(convert_to_cgal_3d(a),
 			 convert_to_cgal_3d(b),
@@ -229,23 +222,23 @@ namespace
 			 convert_to_cgal_3d(d));
   }
   //-----------------------------------------------------------------------------
-  inline bool is_degenerate_2d(const dolfin::Point& a,
-			       const dolfin::Point& b)
+  inline bool is_degenerate_2d(const simpex::Point& a,
+			       const simpex::Point& b)
   {
     const Segment_2 s(convert_to_cgal_2d(a), convert_to_cgal_2d(b));
     return s.is_degenerate();
   }
   //-----------------------------------------------------------------------------
-  inline bool is_degenerate_3d(const dolfin::Point& a,
-			       const dolfin::Point& b)
+  inline bool is_degenerate_3d(const simpex::Point& a,
+			       const simpex::Point& b)
   {
     const Segment_3 s(convert_to_cgal_3d(a), convert_to_cgal_3d(b));
     return s.is_degenerate();
   }
   //-----------------------------------------------------------------------------
-  inline bool is_degenerate_2d(const dolfin::Point& a,
-			       const dolfin::Point& b,
-			       const dolfin::Point& c)
+  inline bool is_degenerate_2d(const simpex::Point& a,
+			       const simpex::Point& b,
+			       const simpex::Point& c)
   {
     const Triangle_2 t(convert_to_cgal_2d(a),
 		       convert_to_cgal_2d(b),
@@ -253,9 +246,9 @@ namespace
     return t.is_degenerate();
   }
   //-----------------------------------------------------------------------------
-  inline bool is_degenerate_3d(const dolfin::Point& a,
-			       const dolfin::Point& b,
-			       const dolfin::Point& c)
+  inline bool is_degenerate_3d(const simpex::Point& a,
+			       const simpex::Point& b,
+			       const simpex::Point& c)
   {
     const Triangle_3 t(convert_to_cgal_3d(a),
 		       convert_to_cgal_3d(b),
@@ -263,10 +256,10 @@ namespace
     return t.is_degenerate();
   }
   //-----------------------------------------------------------------------------
-  inline bool is_degenerate_3d(const dolfin::Point& a,
-			       const dolfin::Point& b,
-			       const dolfin::Point& c,
-			       const dolfin::Point& d)
+  inline bool is_degenerate_3d(const simpex::Point& a,
+			       const simpex::Point& b,
+			       const simpex::Point& c,
+			       const simpex::Point& d)
   {
     const Tetrahedron_3 t(convert_to_cgal_3d(a),
 			  convert_to_cgal_3d(b),
@@ -275,65 +268,65 @@ namespace
     return t.is_degenerate();
   }
   //-----------------------------------------------------------------------------
-  inline dolfin::Point convert_from_cgal(const Point_2& p)
+  inline simpex::Point convert_from_cgal(const Point_2& p)
   {
-    return dolfin::Point(CGAL::to_double(p.x()),CGAL::to_double(p.y()));
+    return simpex::Point(CGAL::to_double(p.x()),CGAL::to_double(p.y()));
   }
   //-----------------------------------------------------------------------------
-  inline dolfin::Point convert_from_cgal(const Point_3& p)
+  inline simpex::Point convert_from_cgal(const Point_3& p)
   {
-    return dolfin::Point(CGAL::to_double(p.x()),
+    return simpex::Point(CGAL::to_double(p.x()),
 			 CGAL::to_double(p.y()),
 			 CGAL::to_double(p.z()));
   }
   //-----------------------------------------------------------------------------
-  inline std::vector<dolfin::Point> convert_from_cgal(const Segment_2& s)
+  inline std::vector<simpex::Point> convert_from_cgal(const Segment_2& s)
   {
-    const std::vector<dolfin::Point> triangulation =
-      {{ dolfin::Point(CGAL::to_double(s.vertex(0)[0]),
+    const std::vector<simpex::Point> triangulation =
+      {{ simpex::Point(CGAL::to_double(s.vertex(0)[0]),
 		       CGAL::to_double(s.vertex(0)[1])),
-      	 dolfin::Point(CGAL::to_double(s.vertex(1)[0]),
+      	 simpex::Point(CGAL::to_double(s.vertex(1)[0]),
 		       CGAL::to_double(s.vertex(1)[1]))
 	}};
     return triangulation;
   }
   //-----------------------------------------------------------------------------
-  inline std::vector<dolfin::Point> convert_from_cgal(const Segment_3& s)
+  inline std::vector<simpex::Point> convert_from_cgal(const Segment_3& s)
   {
-    const std::vector<dolfin::Point> triangulation =
-      {{ dolfin::Point(CGAL::to_double(s.vertex(0)[0]),
+    const std::vector<simpex::Point> triangulation =
+      {{ simpex::Point(CGAL::to_double(s.vertex(0)[0]),
 		       CGAL::to_double(s.vertex(0)[1]),
 		       CGAL::to_double(s.vertex(0)[2])),
-      	 dolfin::Point(CGAL::to_double(s.vertex(1)[0]),
+      	 simpex::Point(CGAL::to_double(s.vertex(1)[0]),
 		       CGAL::to_double(s.vertex(1)[1]),
 		       CGAL::to_double(s.vertex(1)[2]))
 	}};
     return triangulation;
   }
   //-----------------------------------------------------------------------------
-  inline std::vector<dolfin::Point> convert_from_cgal(const Triangle_2& t)
+  inline std::vector<simpex::Point> convert_from_cgal(const Triangle_2& t)
   {
-    const std::vector<dolfin::Point> triangulation =
-      {{ dolfin::Point(CGAL::to_double(t.vertex(0)[0]),
+    const std::vector<simpex::Point> triangulation =
+      {{ simpex::Point(CGAL::to_double(t.vertex(0)[0]),
 		       CGAL::to_double(t.vertex(0)[1])),
-      	 dolfin::Point(CGAL::to_double(t.vertex(2)[0]),
+      	 simpex::Point(CGAL::to_double(t.vertex(2)[0]),
 		       CGAL::to_double(t.vertex(2)[1])),
-      	 dolfin::Point(CGAL::to_double(t.vertex(1)[0]),
+      	 simpex::Point(CGAL::to_double(t.vertex(1)[0]),
 		       CGAL::to_double(t.vertex(1)[1]))
 	}};
     return triangulation;
   }
   //-----------------------------------------------------------------------------
-  inline std::vector<dolfin::Point> convert_from_cgal(const Triangle_3& t)
+  inline std::vector<simpex::Point> convert_from_cgal(const Triangle_3& t)
   {
-    const std::vector<dolfin::Point> triangulation =
-      {{ dolfin::Point(CGAL::to_double(t.vertex(0)[0]),
+    const std::vector<simpex::Point> triangulation =
+      {{ simpex::Point(CGAL::to_double(t.vertex(0)[0]),
 		       CGAL::to_double(t.vertex(0)[1]),
 		       CGAL::to_double(t.vertex(0)[2])),
-      	 dolfin::Point(CGAL::to_double(t.vertex(2)[0]),
+      	 simpex::Point(CGAL::to_double(t.vertex(2)[0]),
 		       CGAL::to_double(t.vertex(2)[1]),
 		       CGAL::to_double(t.vertex(2)[2])),
-      	 dolfin::Point(CGAL::to_double(t.vertex(1)[0]),
+      	 simpex::Point(CGAL::to_double(t.vertex(1)[0]),
 		       CGAL::to_double(t.vertex(1)[1]),
 		       CGAL::to_double(t.vertex(1)[2]))
 	}};
@@ -341,8 +334,8 @@ namespace
   }
   //-----------------------------------------------------------------------------
   inline
-  std::vector<std::vector<dolfin::Point>>
-  triangulate_polygon_2d(const std::vector<dolfin::Point>& points)
+  std::vector<std::vector<simpex::Point>>
+  triangulate_polygon_2d(const std::vector<simpex::Point>& points)
   {
     // Convert points
     std::vector<Point_2> pcgal(points.size());
@@ -354,7 +347,7 @@ namespace
     tcgal.insert(pcgal.begin(), pcgal.end());
 
     // Convert back
-    std::vector<std::vector<dolfin::Point>> t;
+    std::vector<std::vector<simpex::Point>> t;
     for (Triangulation_2::Finite_faces_iterator fit = tcgal.finite_faces_begin();
 	 fit != tcgal.finite_faces_end(); ++fit)
     {
@@ -367,22 +360,20 @@ namespace
   }
   //-----------------------------------------------------------------------------
   inline
-  std::vector<std::vector<dolfin::Point>>
-  triangulate_polygon_3d(const std::vector<dolfin::Point>& points)
+  std::vector<std::vector<simpex::Point>>
+  triangulate_polygon_3d(const std::vector<simpex::Point>& /*points*/)
   {
     // FIXME
-    dolfin::dolfin_error("CGALExactArithmetic.h",
-			 "triangulate_polygon_3d",
-			 "Not implemented");
-    return std::vector<std::vector<dolfin::Point>>();
+    assert(false); // not implemented / unexpected
+    return std::vector<std::vector<simpex::Point>>();
   }
   //-----------------------------------------------------------------------------
 }
 
-namespace dolfin
+namespace simpex
 {
   //---------------------------------------------------------------------------
-  // Reference implementations of DOLFIN collision detection predicates
+  // Reference implementations of SIMPEX collision detection predicates
   // using CGAL exact arithmetic
   // ---------------------------------------------------------------------------
   inline bool cgal_collides_segment_point_2d(const Point& q0,
@@ -541,40 +532,11 @@ namespace dolfin
                                                        const Point& q2,
                                                        const Point& q3)
   {
-    // Check volume collisions
-    if (cgal_collides_tetrahedron_point_3d(p0, p1, p2, p3, q0)) return true;
-    if (cgal_collides_tetrahedron_point_3d(p0, p1, p2, p3, q1)) return true;
-    if (cgal_collides_tetrahedron_point_3d(p0, p1, p2, p3, q2)) return true;
-    if (cgal_collides_tetrahedron_point_3d(p0, p1, p2, p3, q3)) return true;
-    if (cgal_collides_tetrahedron_point_3d(q0, q1, q2, q3, p0)) return true;
-    if (cgal_collides_tetrahedron_point_3d(q0, q1, q2, q3, p1)) return true;
-    if (cgal_collides_tetrahedron_point_3d(q0, q1, q2, q3, p2)) return true;
-    if (cgal_collides_tetrahedron_point_3d(q0, q1, q2, q3, p3)) return true;
-
-    Polyhedron_3 tet_a;
-    tet_a.make_tetrahedron(convert_to_cgal_3d(p0),
-			   convert_to_cgal_3d(p1),
-			   convert_to_cgal_3d(p2),
-			   convert_to_cgal_3d(p3));
-
-    Polyhedron_3 tet_b;
-    tet_b.make_tetrahedron(convert_to_cgal_3d(q0),
-			   convert_to_cgal_3d(q1),
-			   convert_to_cgal_3d(q2),
-			   convert_to_cgal_3d(q3));
-
-    // Check for polyhedron intersection (recall that a polyhedron is
-    // only its vertices, edges and faces)
-    std::size_t cnt = 0;
-    CGAL::Counting_output_iterator out(&cnt);
-    CGAL::intersection_Polyhedron_3_Polyhedron_3<Polyhedron_3>(tet_a,
-							       tet_b,
-							       out);
-    // The tetrahedra does not intersect if cnt == 0
-    return cnt != 0;
+    return CGAL::do_intersect(convert_to_cgal_3d(p0, p1, p2, p3),
+                              convert_to_cgal_3d(q0, q1, q2, q3));
   }
   //----------------------------------------------------------------------------
-  // Reference implementations of DOLFIN intersection triangulation
+  // Reference implementations of SIMPEX intersection triangulation
   // functions using CGAL with exact arithmetic
   // ---------------------------------------------------------------------------
   inline
@@ -583,27 +545,25 @@ namespace dolfin
 							  const Point& q0,
 							  const Point& q1)
   {
-    dolfin_assert(!is_degenerate_2d(p0, p1));
-    dolfin_assert(!is_degenerate_2d(q0, q1));
+    assert(!is_degenerate_2d(p0, p1));
+    assert(!is_degenerate_2d(q0, q1));
 
     const auto I0 = convert_to_cgal_2d(p0, p1);
     const auto I1 = convert_to_cgal_2d(q0, q1);
 
     if (const auto ii = CGAL::intersection(I0, I1))
     {
-      if (const Point_2* p = boost::get<Point_2>(&*ii))
+      if (const Point_2* p = cgal_get_if<Point_2>(&*ii))
       {
         return std::vector<Point>{convert_from_cgal(*p)};
       }
-      else if (const Segment_2* s = boost::get<Segment_2>(&*ii))
+      else if (const Segment_2* s = cgal_get_if<Segment_2>(&*ii))
       {
         return convert_from_cgal(*s);
       }
       else
       {
-        dolfin_error("CGALExactArithmetic.h",
-                     "cgal_intersection_segment_segment_2d",
-                     "Unexpected behavior");
+        assert(false); // not implemented / unexpected
       }
     }
 
@@ -616,27 +576,25 @@ namespace dolfin
 							  const Point& q0,
 							  const Point& q1)
   {
-    dolfin_assert(!is_degenerate_3d(p0, p1));
-    dolfin_assert(!is_degenerate_3d(q0, q1));
+    assert(!is_degenerate_3d(p0, p1));
+    assert(!is_degenerate_3d(q0, q1));
 
     const auto I0 = convert_to_cgal_3d(p0, p1);
     const auto I1 = convert_to_cgal_3d(q0, q1);
 
     if (const auto ii = CGAL::intersection(I0, I1))
     {
-      if (const Point_3* p = boost::get<Point_3>(&*ii))
+      if (const Point_3* p = cgal_get_if<Point_3>(&*ii))
       {
         return std::vector<Point>{convert_from_cgal(*p)};
       }
-      else if (const Segment_3* s = boost::get<Segment_3>(&*ii))
+      else if (const Segment_3* s = cgal_get_if<Segment_3>(&*ii))
       {
         return convert_from_cgal(*s);
       }
       else
       {
-        dolfin_error("CGALExactArithmetic.h",
-                     "cgal_intersection_segment_segment_3d",
-                     "Unexpected behavior");
+        assert(false); // not implemented / unexpected
       }
     }
 
@@ -668,27 +626,25 @@ namespace dolfin
                                                            const Point& q0,
                                                            const Point& q1)
   {
-    dolfin_assert(!is_degenerate_2d(p0, p1, p2));
-    dolfin_assert(!is_degenerate_2d(q0, q1));
+    assert(!is_degenerate_2d(p0, p1, p2));
+    assert(!is_degenerate_2d(q0, q1));
 
     const auto T = convert_to_cgal_2d(p0, p1, p2);
     const auto I = convert_to_cgal_2d(q0, q1);
 
     if (const auto ii = CGAL::intersection(T, I))
     {
-      if (const Point_2* p = boost::get<Point_2>(&*ii))
+      if (const Point_2* p = cgal_get_if<Point_2>(&*ii))
       {
         return std::vector<Point>{convert_from_cgal(*p)};
       }
-      else if (const Segment_2* s = boost::get<Segment_2>(&*ii))
+      else if (const Segment_2* s = cgal_get_if<Segment_2>(&*ii))
       {
         return convert_from_cgal(*s);
       }
       else
       {
-        dolfin_error("CGALExactArithmetic.h",
-                     "cgal_intersection_triangle_segment_2d",
-                     "Unexpected behavior");
+        assert(false); // not implemented / unexpected
       }
     }
 
@@ -702,23 +658,21 @@ namespace dolfin
 							   const Point& q0,
 							   const Point& q1)
   {
-    dolfin_assert(!is_degenerate_3d(p0, p1, p2));
-    dolfin_assert(!is_degenerate_3d(q0, q1));
+    assert(!is_degenerate_3d(p0, p1, p2));
+    assert(!is_degenerate_3d(q0, q1));
 
     const auto T = convert_to_cgal_3d(p0, p1, p2);
     const auto I = convert_to_cgal_3d(q0, q1);
 
     if (const auto ii = CGAL::intersection(T, I))
     {
-      if (const Point_3* p = boost::get<Point_3>(&*ii))
+      if (const Point_3* p = cgal_get_if<Point_3>(&*ii))
         return std::vector<Point>{convert_from_cgal(*p)};
-      else if (const Segment_3* s = boost::get<Segment_3>(&*ii))
+      else if (const Segment_3* s = cgal_get_if<Segment_3>(&*ii))
         return convert_from_cgal(*s);
       else
       {
-        dolfin_error("CGALExactArithmetic.h",
-                     "cgal_intersection_triangle_segment_3d",
-                     "Unexpected behavior");
+        assert(false); // not implemented / unexpected
       }
     }
 
@@ -753,8 +707,8 @@ namespace dolfin
                                                             const Point& q1,
                                                             const Point& q2)
   {
-    dolfin_assert(!is_degenerate_2d(p0, p1, p2));
-    dolfin_assert(!is_degenerate_2d(q0, q1, q2));
+    assert(!is_degenerate_2d(p0, p1, p2));
+    assert(!is_degenerate_2d(q0, q1, q2));
 
     const Triangle_2 T0 = convert_to_cgal_2d(p0, p1, p2);
     const Triangle_2 T1 = convert_to_cgal_2d(q0, q1, q2);
@@ -762,38 +716,34 @@ namespace dolfin
 
     if (const auto ii = CGAL::intersection(T0, T1))
     {
-      if (const Point_2* p = boost::get<Point_2>(&*ii))
+      if (const Point_2* p = cgal_get_if<Point_2>(&*ii))
       {
         intersection.push_back(convert_from_cgal(*p));
       }
-      else if (const Segment_2* s = boost::get<Segment_2>(&*ii))
+      else if (const Segment_2* s = cgal_get_if<Segment_2>(&*ii))
       {
         intersection = convert_from_cgal(*s);
       }
-      else if (const Triangle_2* t = boost::get<Triangle_2>(&*ii))
+      else if (const Triangle_2* t = cgal_get_if<Triangle_2>(&*ii))
       {
         intersection = convert_from_cgal(*t);;
       }
-      else if (const std::vector<Point_2>* cgal_points = boost::get<std::vector<Point_2>>(&*ii))
+      else if (const std::vector<Point_2>* cgal_points = cgal_get_if<std::vector<Point_2>>(&*ii))
       {
-        for (Point_2 p : *cgal_points)
+        for (const Point_2& cp : *cgal_points)
         {
-          intersection.push_back(convert_from_cgal(p));
+          intersection.push_back(convert_from_cgal(cp));
         }
       }
       else
       {
-      	dolfin_error("CGALExactArithmetic.h",
-		     "cgal_intersection_triangle_triangle_2d",
-		     "Unexpected behavior");
+      	assert(false); // not implemented / unexpected
       }
 
       // NB: the parsing can return triangulation of size 0, for example
       // if it detected a triangle but it was found to be flat.
       /* if (triangulation.size() == 0) */
-      /*   dolfin_error("CGALExactArithmetic.h", */
-      /*                "find intersection of two triangles in cgal_intersection_triangle_triangle function", */
-      /*                "no intersection found"); */
+      /*   assert(false); // not implemented / unexpected */
     }
 
     return intersection;
@@ -807,8 +757,8 @@ namespace dolfin
 							    const Point& q1,
 							    const Point& q2)
   {
-    dolfin_assert(!is_degenerate_3d(p0, p1, p2));
-    dolfin_assert(!is_degenerate_3d(q0, q1, q2));
+    assert(!is_degenerate_3d(p0, p1, p2));
+    assert(!is_degenerate_3d(q0, q1, q2));
 
     const Triangle_3 T0 = convert_to_cgal_3d(p0, p1, p2);
     const Triangle_3 T1 = convert_to_cgal_3d(q0, q1, q2);
@@ -816,30 +766,28 @@ namespace dolfin
 
     if (const auto ii = CGAL::intersection(T0, T1))
     {
-      if (const Point_3* p = boost::get<Point_3>(&*ii))
+      if (const Point_3* p = cgal_get_if<Point_3>(&*ii))
       {
         intersection.push_back(convert_from_cgal(*p));
       }
-      else if (const Segment_3* s = boost::get<Segment_3>(&*ii))
+      else if (const Segment_3* s = cgal_get_if<Segment_3>(&*ii))
       {
         intersection = convert_from_cgal(*s);
       }
-      else if (const Triangle_3* t = boost::get<Triangle_3>(&*ii))
+      else if (const Triangle_3* t = cgal_get_if<Triangle_3>(&*ii))
       {
         intersection = convert_from_cgal(*t);;
       }
-      else if (const std::vector<Point_3>* cgal_points = boost::get<std::vector<Point_3>>(&*ii))
+      else if (const std::vector<Point_3>* cgal_points = cgal_get_if<std::vector<Point_3>>(&*ii))
       {
-        for (Point_3 p : *cgal_points)
+        for (const Point_3& cp : *cgal_points)
         {
-          intersection.push_back(convert_from_cgal(p));
+          intersection.push_back(convert_from_cgal(cp));
         }
       }
       else
       {
-        dolfin_error("CGALExactArithmetic.h",
-                     "cgal_intersection_triangle_triangle_3d",
-                     "Unexpected behavior");
+        assert(false); // not implemented / unexpected
       }
     }
 
@@ -855,8 +803,8 @@ namespace dolfin
 					const Point& q1,
 					const Point& q2)
   {
-    dolfin_assert(!is_degenerate_2d(p0, p1, p2));
-    dolfin_assert(!is_degenerate_2d(q0, q1, q2));
+    assert(!is_degenerate_2d(p0, p1, p2));
+    assert(!is_degenerate_2d(q0, q1, q2));
 
     const std::vector<Point> intersection
       = cgal_intersection_triangle_triangle_2d(p0, p1, p2, q0, q1, q2);
@@ -867,7 +815,7 @@ namespace dolfin
     }
     else
     {
-      dolfin_assert(intersection.size() == 4 ||
+      assert(intersection.size() == 4 ||
 		    intersection.size() == 5 ||
 		    intersection.size() == 6);
       return triangulate_polygon_2d(intersection);
@@ -883,8 +831,8 @@ namespace dolfin
 					const Point& q1,
 					const Point& q2)
   {
-    dolfin_assert(!is_degenerate_3d(p0, p1, p2));
-    dolfin_assert(!is_degenerate_3d(q0, q1, q2));
+    assert(!is_degenerate_3d(p0, p1, p2));
+    assert(!is_degenerate_3d(q0, q1, q2));
 
     const std::vector<Point> intersection
       = cgal_intersection_triangle_triangle_3d(p0, p1, p2, q0, q1, q2);
@@ -895,7 +843,7 @@ namespace dolfin
     }
     else
     {
-      dolfin_assert(intersection.size() == 4 ||
+      assert(intersection.size() == 4 ||
 		    intersection.size() == 5 ||
 		    intersection.size() == 6);
       return triangulate_polygon_3d(intersection);
@@ -912,34 +860,11 @@ namespace dolfin
 					 const Point& q1,
 					 const Point& q2)
   {
-    dolfin_assert(!is_degenerate_3d(p0, p1, p2, p3));
-    dolfin_assert(!is_degenerate_3d(q0, q1, q2));
-
-    // const Tetrahedron_3 tet = convert_from_cgal(p0, p1, p2, p3);
-    // const Triangle_3 tri = convert_from_cgal(q0, q1, q2);
-
-    Polyhedron_3 tet;
-    tet.make_tetrahedron(convert_to_cgal_3d(p0),
-			 convert_to_cgal_3d(p1),
-			 convert_to_cgal_3d(p2),
-			 convert_to_cgal_3d(p3));
-    Polyhedron_3 tri;
-    tri.make_triangle(convert_to_cgal_3d(q0),
-		      convert_to_cgal_3d(q1),
-		      convert_to_cgal_3d(q2));
-
-    std::list<std::vector<Point_3> > triangulation;
-    CGAL::intersection_Polyhedron_3_Polyhedron_3(tet,
-						 tri,
-						 std::back_inserter(triangulation));
-
-    // FIXME: do we need to add interior point checks? Maybe
-    // Polyhedron_3 is only top dim 2?
+    assert(!is_degenerate_3d(p0, p1, p2, p3));
+    assert(!is_degenerate_3d(q0, q1, q2));
 
     // Shouldn't get here
-    dolfin_error("CGALExactArithmetic.h",
-		 "cgal_intersection_tetrahedron_triangle",
-		 "Not implemented");
+    assert(false); // not implemented / unexpected
 
     return std::vector<Point>();
   }
@@ -953,16 +878,14 @@ namespace dolfin
 					const Point& q1,
 					const Point& q2)
   {
-    dolfin_assert(!is_degenerate_3d(p0, p1, p2, p3));
-    dolfin_assert(!is_degenerate_3d(q0, q1, q2));
+    assert(!is_degenerate_3d(p0, p1, p2, p3));
+    assert(!is_degenerate_3d(q0, q1, q2));
 
     std::vector<Point> intersection =
       cgal_intersection_tetrahedron_triangle(p0, p1, p2, p3, q0, q1, q2);
 
     // Shouldn't get here
-    dolfin_error("CGALExactArithmetic.h",
-		 "cgal_triangulation_tetrahedron_triangle",
-		 "Not implemented");
+    assert(false); // not implemented / unexpected
 
     return std::vector<std::vector<Point>>();
   }
@@ -977,8 +900,8 @@ namespace dolfin
 					       const Point& q2,
 					       const Point& q3)
   {
-    dolfin_assert(!is_degenerate_3d(p0, p1, p2, p3));
-    dolfin_assert(!is_degenerate_3d(q0, q1, q2, q3));
+    assert(!is_degenerate_3d(p0, p1, p2, p3));
+    assert(!is_degenerate_3d(q0, q1, q2, q3));
 
     Polyhedron_3 tet_a;
     tet_a.make_tetrahedron(convert_to_cgal_3d(p0),
@@ -1009,13 +932,13 @@ namespace dolfin
     return res;
   }
   //----------------------------------------------------------------------------
-  // Reference implementations of DOLFIN is_degenerate
+  // Reference implementations of SIMPEX is_degenerate
   //-----------------------------------------------------------------------------
   inline bool cgal_is_degenerate_2d(const std::vector<Point>& s)
   {
     if (s.size() < 2 or s.size() > 3)
     {
-      info("Degenerate 2D simplex with %d vertices.", s.size());
+      std::printf("Degenerate 2D simplex with %zu vertices.", s.size());
       return true;
     }
 
@@ -1026,9 +949,7 @@ namespace dolfin
     }
 
     // Shouldn't get here
-    dolfin_error("CGALExactArithmetic.h",
-                 "call cgal_is_degenerate_2d",
-                 "Only implemented for simplices of tdim 0, 1 and 2, not tdim = %d", s.size() - 1);
+    assert(false); // not implemented / unexpected
 
     return true;
   }
@@ -1037,7 +958,7 @@ namespace dolfin
   {
     if (s.size() < 2 or s.size() > 4)
     {
-      info("Degenerate 3D simplex with %d vertices.", s.size());
+      std::printf("Degenerate 3D simplex with %zu vertices.", s.size());
       return true;
     }
 
@@ -1049,9 +970,7 @@ namespace dolfin
     }
 
     // Shouldn't get here
-    dolfin_error("CGALExactArithmetic.h",
-                 "call cgal_is_degenerate_3d",
-                 "Only implemented for simplices of tdim 0, 1, 2 and 3, not tdim = %d", s.size() - 1);
+    assert(false); // not implemented / unexpected
 
     return true;
   }
@@ -1090,7 +1009,7 @@ namespace dolfin
   //-----------------------------------------------------------------------------
   inline double cgal_tet_volume(const std::vector<Point>& ch)
   {
-    dolfin_assert(ch.size() == 3);
+    assert(ch.size() == 3);
     return CGAL::to_double(CGAL::volume(Point_3(ch[0].x(), ch[0].y(), ch[0].z()),
                                         Point_3(ch[1].x(), ch[1].y(), ch[1].z()),
                                         Point_3(ch[2].x(), ch[2].y(), ch[2].z()),

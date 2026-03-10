@@ -24,7 +24,7 @@
 #include <vector>
 #include "Point.h"
 
-namespace dolfin
+namespace simpex
 {
 
   /// This class implements algorithms for triangulating convex
@@ -43,15 +43,17 @@ namespace dolfin
     /// Triangulate 1D
     static std::vector<std::vector<Point>>
     triangulate_1d(const std::vector<Point>& pm,
-		   std::size_t gdim);
+		   std::size_t gdim)
+    {
+      return _triangulate_1d(pm, gdim);
+    }
 
     /// Triangulate using the Graham scan 2D
     static std::vector<std::vector<Point>>
-    triangulate_graham_scan_2d(const std::vector<Point>& pm);
-
-    /// Triangulate using the Graham scan tdim 2, gdim 3
-    static std::vector<std::vector<Point>>
-    triangulate_graham_scan_2d_3d(const std::vector<Point>& pm);
+    triangulate_graham_scan_2d(const std::vector<Point>& pm)
+    {
+      return _triangulate_graham_scan_2d(pm);
+    }
 
     /// Triangulate using the Graham scan 3D
     static std::vector<std::vector<Point>>
@@ -64,7 +66,7 @@ namespace dolfin
 
     // Implementation declarations
 
-    /// Implementation of tdim=1 triangulation
+    /// Implementation of 1D triangulation
     static std::vector<std::vector<Point>>
     _triangulate_1d(const std::vector<Point>& pm,
 		    std::size_t gdim);
@@ -73,15 +75,13 @@ namespace dolfin
     static std::vector<std::vector<Point>>
     _triangulate_graham_scan_2d(const std::vector<Point>& pm);
 
-    /// Implementation of Graham scan tdim 2, gdim 3
-    static std::vector<std::vector<Point>>
-    _triangulate_graham_scan_2d_3d(const std::vector<Point>& pm);
-
-    /// Implementation of Graham scan tdim 3, gdim 3
+    /// Implementation of Graham scan 3D
     static std::vector<std::vector<Point>>
     _triangulate_graham_scan_3d(const std::vector<Point>& pm);
-
   };
 
-} // end namespace dolfin
+} // end namespace simpex
+
+namespace dolfin { using ConvexTriangulation = simpex::ConvexTriangulation; }
+
 #endif

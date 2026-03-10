@@ -22,10 +22,9 @@
 #define __GEOMETRY_PREDICATES_H
 
 #include <vector>
-#include <dolfin/log/LogStream.h>
 #include "Point.h"
 
-namespace dolfin
+namespace simpex
 {
 
   /// This class implements geometric predicates, i.e. function that
@@ -62,6 +61,8 @@ namespace dolfin
     static bool _is_degenerate_tdim_3_gdim_3(const std::vector<Point>& simplex);
   };
 
-}
+} // namespace simpex
+
+namespace dolfin { using GeometryPredicates = simpex::GeometryPredicates; }
 
 #endif

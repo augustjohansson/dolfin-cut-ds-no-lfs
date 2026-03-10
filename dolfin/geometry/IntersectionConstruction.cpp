@@ -18,25 +18,58 @@
 // First added:  2014-02-03
 // Last changed: 2017-12-12
 
+#include <algorithm>
+#include <cassert>
+#include <cmath>
 #include <iomanip>
-#include <numeric>
-#include <dolfin/mesh/MeshEntity.h>
-#include "predicates.h"
+#include <stdexcept>
+#include "CGALExactArithmetic.h"
+#include "CollisionPredicates.h"
 #include "GeometryPredicates.h"
 #include "GeometryTools.h"
-#include "GeometryDebugging.h"
-#include "CollisionPredicates.h"
 #include "IntersectionConstruction.h"
-#include "CGALExactArithmetic.h"
+#include "predicates.h"
 
-//#ifdef DOLFIN_GEOMETRY_PRINT
-#include "../dolfin_simplex_tools.h"
-//#endif
-
-using namespace dolfin;
+using namespace simpex;
 
 namespace
 {
+  // Return the index of the largest absolute component of v (2D).
+  inline std::size_t major_axis_2d(const Point& v)
+  {
+    return (std::abs(v.x()) >= std::abs(v.y()) ? 0 : 1);
+  }
+
+  // Return the index of the largest absolute component of v (3D).
+  inline std::size_t major_axis_3d(const Point& v)
+  {
+    const double vx = std::abs(v.x());
+    const double vy = std::abs(v.y());
+    const double vz = std::abs(v.z());
+    if (vx >= vy && vx >= vz) return 0;
+    if (vy >= vz) return 1;
+    return 2;
+  }
+
+  // Project p onto the given axis coordinate (2D).
+  inline double project_to_axis_2d(const Point& p, std::size_t axis)
+  {
+    assert(axis <= 1);
+    return p[axis];
+  }
+
+  // Drop the given axis coordinate from p, returning a 2D point.
+  inline Point project_to_plane_3d(const Point& p, std::size_t axis)
+  {
+    assert(axis <= 2);
+    switch (axis)
+    {
+    case 0: return Point(p.y(), p.z());
+    case 1: return Point(p.x(), p.z());
+    default: return Point(p.x(), p.y());
+    }
+  }
+
   // Add points to vector
   template <typename T>
   inline void add(std::vector<T>& points,
@@ -49,9 +82,6 @@ namespace
   template <typename T>
   inline std::vector<T> unique(const std::vector<T>& points)
   {
-#ifdef DOLFIN_GEOMETRY_PRINT
-    std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
-#endif
     std::vector<T> _unique;
     _unique.reserve(points.size());
 
@@ -72,210 +102,8 @@ namespace
 
     return _unique;
   }
-
-  // Convert vector of doubles to vector of points
-  std::vector<Point> to_points(const std::vector<double>& points)
-  {
-    std::vector<Point> _points;
-    for (double x : points)
-      _points.push_back(Point(x));
-    return _points;
-  }
-
-  // Check if a*b < 0.0
-  bool different_sign(double a, double b)
-  {
-    return (a < 0.0 and b > 0.0) or (a > 0.0 and b < 0.0);
-  }
-
-  // Check if a*b > 0.0
-  bool same_sign(double a, double b)
-  {
-    return (a < 0.0 and b < 0.0) or (a > 0.0 and b > 0.0);
-  }
-
-  // // Bisection 3d
-  // Point bisection_3d(const Point& p0,
-  // 		     const Point& p1,
-  // 		     const Point& p2,
-  // 		     const Point& q1,
-  // 		     const Point& q0)
-  // {
-  //   // Bisect to find intersection of line segment (q0, q1) with plane
-  //   // given by (p0, p1, p2).
-
-  //   double a = 0.0;
-  //   double b = 1.0;
-  //   double ao = orient3d(p0, p1, p2, q0);
-  //   double bo = orient3d(p0, p1, p2, q1);
-  //   dolfin_assert(different_sign(ao, bo));
-  //   double x;
-  //   int iterations = 0;
-
-  //   while (std::abs(b-a) > DOLFIN_EPS)
-  //   {
-  //     x = 0.5*(a + b);
-  //     const Point X = (1.0 - x)*q0 + x*q1;
-  //     const double xo = orient3d(p0, p1, p2, X);
-  //     if (xo == 0.0)
-  //     {
-  // 	return X;
-  //     }
-
-  //     if (different_sign(ao, xo))
-  //     {
-  // 	b = x;
-  // 	bo = xo;
-  //     }
-  //     else
-  //     {
-  // 	a = x;
-  // 	ao = xo;
-  //     }
-
-  //     iterations++;
-  //   }
-  //   std::cout << "iterations " << iterations << '\n';
-  //   return (1.0 - x)*q0 + x*q1;
-  // }
-
 }
 
-//-----------------------------------------------------------------------------
-// High-level intersection construction functions
-//-----------------------------------------------------------------------------
-std::vector<Point>
-IntersectionConstruction::intersection(const MeshEntity& entity_0,
-                                       const MeshEntity& entity_1)
-{
-#ifdef DOLFIN_GEOMETRY_PRINT
-  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
-#endif
-  // Get data
-  const MeshGeometry& g0 = entity_0.mesh().geometry();
-  const MeshGeometry& g1 = entity_1.mesh().geometry();
-  const unsigned int* v0 = entity_0.entities(0);
-  const unsigned int* v1 = entity_1.entities(0);
-
-  // Pack data as vectors of points
-  std::vector<Point> points_0(entity_0.dim() + 1);
-  std::vector<Point> points_1(entity_1.dim() + 1);
-  for (std::size_t i = 0; i <= entity_0.dim(); i++)
-    points_0[i] = g0.point(v0[i]);
-  for (std::size_t i = 0; i <= entity_1.dim(); i++)
-    points_1[i] = g1.point(v1[i]);
-
-  // Only look at first entity to get geometric dimension
-  std::size_t gdim = g0.dim();
-
-  // Call common implementation
-  return intersection(points_0, points_1, gdim);
-}
-//-----------------------------------------------------------------------------
-std::vector<Point>
-IntersectionConstruction::intersection(const std::vector<Point>& p,
-                                       const std::vector<Point>& q,
-                                       std::size_t gdim)
-{
-#ifdef DOLFIN_GEOMETRY_PRINT
-  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
-#endif
-  // Get topological dimensions
-  const std::size_t d0 = p.size() - 1;
-  const std::size_t d1 = q.size() - 1;
-
-  // Swap if d0 < d1 (reduce from 16 to 10 cases)
-  if (d0 < d1)
-    return intersection(q, p, gdim);
-
-  // Pick correct specialized implementation
-  if (d0 == 0 and d1 == 0)
-  {
-    switch (gdim)
-    {
-    case 1: return to_points(intersection_point_point_1d(p[0][0], q[0][0]));
-    case 2: return intersection_point_point_2d(p[0], q[0]);
-    case 3: return intersection_point_point_3d(p[0], q[0]);
-    }
-  }
-  else if (d0 == 1 and d1 == 0)
-  {
-    switch (gdim)
-    {
-    case 1: return to_points(intersection_segment_point_1d(p[0][0], p[1][0], q[0][0]));
-    case 2: return intersection_segment_point_2d(p[0], p[1], q[0]);
-    case 3: return intersection_segment_point_3d(p[0], p[1], q[0]);
-    }
-  }
-  else if (d0 == 1 and d1 == 1)
-  {
-    switch (gdim)
-    {
-    case 1: return to_points(intersection_segment_segment_1d(p[0][0], p[1][0], q[0][0], q[1][0]));
-    case 2: return intersection_segment_segment_2d(p[0], p[1], q[0], q[1]);
-    case 3: return intersection_segment_segment_3d(p[0], p[1], q[0], q[1]);
-    }
-  }
-  else if (d0 == 2 and d1 == 0)
-  {
-    switch (gdim)
-    {
-    case 2: return intersection_triangle_point_2d(p[0], p[1], p[2], q[0]);
-    case 3: return intersection_triangle_point_3d(p[0], p[1], p[2], q[0]);
-    }
-  }
-  else if (d0 == 2 and d1 == 1)
-  {
-    switch (gdim)
-    {
-    case 2: return intersection_triangle_segment_2d(p[0], p[1], p[2], q[0], q[1]);
-    case 3: return intersection_triangle_segment_3d(p[0], p[1], p[2], q[0], q[1]);
-    }
-  }
-  else if (d0 == 2 and d1 == 2)
-  {
-    switch (gdim)
-    {
-    case 2: return intersection_triangle_triangle_2d(p[0], p[1], p[2], q[0], q[1], q[2]);
-    case 3: return intersection_triangle_triangle_3d(p[0], p[1], p[2], q[0], q[1], q[2]);
-    }
-  }
-  else if (d0 == 3 and d1 == 0)
-  {
-    switch (gdim)
-    {
-    case 3: return intersection_tetrahedron_point_3d(p[0], p[1], p[2], p[3], q[0]);
-    }
-  }
-  else if (d0 == 3 and d1 == 1)
-  {
-    switch (gdim)
-    {
-    case 3: return intersection_tetrahedron_segment_3d(p[0], p[1], p[2], p[3], q[0], q[1]);
-    }
-  }
-  else if (d0 == 3 and d1 == 2)
-  {
-    switch (gdim)
-    {
-    case 3: return intersection_tetrahedron_triangle_3d(p[0], p[1], p[2], p[3], q[0], q[1], q[2]);
-    }
-  }
-  else if (d0 == 3 and d1 == 3)
-  {
-    switch (gdim)
-    {
-    case 3: return intersection_tetrahedron_tetrahedron_3d(p[0], p[1], p[2], p[3], q[0], q[1], q[2], q[3]);
-    }
-  }
-
-  // We should not reach this point
-  dolfin_error("IntersectionConstruction.cpp",
-               "compute intersection",
-               "Unexpected intersection: %d-%d in %d dimensions", d0, d1, gdim);
-
-  return std::vector<Point>();
-}
 //-----------------------------------------------------------------------------
 // Low-level intersection construction functions
 //-----------------------------------------------------------------------------
@@ -283,9 +111,6 @@ std::vector<double>
 IntersectionConstruction::intersection_point_point_1d(double p0,
                                                       double q0)
 {
-#ifdef DOLFIN_GEOMETRY_PRINT
-  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
-#endif
   if (p0 == q0)
     return std::vector<double>(1, p0);
   return std::vector<double>();
@@ -295,9 +120,6 @@ std::vector<Point>
 IntersectionConstruction::intersection_point_point_2d(const Point& p0,
                                                       const Point& q0)
 {
-#ifdef DOLFIN_GEOMETRY_PRINT
-  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
-#endif
   if (p0.x() == q0.x() && p0.y() == q0.y())
     return std::vector<Point>(1, p0);
   else
@@ -308,9 +130,6 @@ std::vector<Point>
 IntersectionConstruction::intersection_point_point_3d(const Point& p0,
                                                       const Point& q0)
 {
-#ifdef DOLFIN_GEOMETRY_PRINT
-  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
-#endif
   if (p0.x() == q0.x() && p0.y() == q0.y() && p0.z() == q0.z())
     return std::vector<Point>(1, p0);
   else
@@ -322,9 +141,6 @@ IntersectionConstruction::intersection_segment_point_1d(double p0,
                                                         double p1,
                                                         double q0)
 {
-#ifdef DOLFIN_GEOMETRY_PRINT
-  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
-#endif
   if (CollisionPredicates::collides_segment_point_1d(p0, p1, q0))
     return std::vector<double>(1, q0);
   else
@@ -336,9 +152,6 @@ IntersectionConstruction::intersection_segment_point_2d(const Point& p0,
                                                         const Point& p1,
                                                         const Point& q0)
 {
-#ifdef DOLFIN_GEOMETRY_PRINT
-  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
-#endif
   if (CollisionPredicates::collides_segment_point_2d(p0, p1, q0))
     return std::vector<Point>(1, q0);
   else
@@ -350,9 +163,6 @@ IntersectionConstruction::intersection_segment_point_3d(const Point& p0,
                                                         const Point& p1,
                                                         const Point& q0)
 {
-#ifdef DOLFIN_GEOMETRY_PRINT
-  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
-#endif
   if (CollisionPredicates::collides_segment_point_3d(p0, p1, q0))
     return std::vector<Point>(1, q0);
   else
@@ -365,9 +175,6 @@ IntersectionConstruction::intersection_triangle_point_2d(const Point& p0,
                                                          const Point& p2,
                                                          const Point& q0)
 {
-#ifdef DOLFIN_GEOMETRY_PRINT
-  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
-#endif
   if (CollisionPredicates::collides_triangle_point_2d(p0, p1, p2, q0))
     return std::vector<Point>(1, q0);
   else
@@ -380,9 +187,6 @@ IntersectionConstruction::intersection_triangle_point_3d(const Point& p0,
                                                          const Point& p2,
                                                          const Point& q0)
 {
-#ifdef DOLFIN_GEOMETRY_PRINT
-  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
-#endif
   if (CollisionPredicates::collides_triangle_point_3d(p0, p1, p2, q0))
     return std::vector<Point>(1, q0);
   else
@@ -396,9 +200,6 @@ IntersectionConstruction::intersection_tetrahedron_point_3d(const Point& p0,
                                                             const Point& p3,
                                                             const Point& q0)
 {
-#ifdef DOLFIN_GEOMETRY_PRINT
-  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
-#endif
   if (CollisionPredicates::collides_tetrahedron_point_3d(p0, p1, p2, p3, q0))
     return std::vector<Point>(1, q0);
   else
@@ -411,9 +212,6 @@ IntersectionConstruction::intersection_segment_segment_1d(double p0,
                                                           double q0,
                                                           double q1)
 {
-#ifdef DOLFIN_GEOMETRY_PRINT
-  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
-#endif
   // The list of points (convex hull)
   std::vector<double> points;
 
@@ -423,7 +221,7 @@ IntersectionConstruction::intersection_segment_segment_1d(double p0,
   add(points, intersection_segment_point_1d(q0, q1, p0));
   add(points, intersection_segment_point_1d(q0, q1, p1));
 
-  dolfin_assert(GeometryPredicates::is_finite(points));
+  assert(GeometryPredicates::is_finite(points));
   return unique(points);
 }
 //-----------------------------------------------------------------------------
@@ -433,9 +231,6 @@ IntersectionConstruction::intersection_segment_segment_2d(const Point& p0,
                                                           const Point& q0,
                                                           const Point& q1)
 {
-#ifdef DOLFIN_GEOMETRY_PRINT
-  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
-#endif
   // We consider the following 4 cases for the segment q0-q1
   // relative to the line defined by the segment p0-p1:
   //
@@ -470,13 +265,13 @@ IntersectionConstruction::intersection_segment_segment_2d(const Point& p0,
   const double q1o = orient2d(p0, p1, q1);
 
   // Case 0: points on the same side --> no intersection
-  if (same_sign(q0o, q1o))
+  if ((q0o > 0.0 and q1o > 0.0) or (q0o < 0.0 and q1o < 0.0))
     return std::vector<Point>();
 
   // Repeat the same procedure for p
   const double p0o = orient2d(q0, q1, p0);
   const double p1o = orient2d(q0, q1, p1);
-  if (same_sign(p0o, p1o))
+  if ((p0o > 0.0 and p1o > 0.0) or (p0o < 0.0 and p1o < 0.0))
     return std::vector<Point>();
 
   // Case 1: exactly one point on line --> possible point intersection
@@ -491,16 +286,16 @@ IntersectionConstruction::intersection_segment_segment_2d(const Point& p0,
 
   // Compute line vector and major axis
   const Point v = p1 - p0;
-  const std::size_t major_axis = GeometryTools::major_axis_2d(v);
+  const std::size_t major_axis = major_axis_2d(v);
 
   // Project points to major axis
-  const double P0 = GeometryTools::project_to_axis_2d(p0, major_axis);
-  const double P1 = GeometryTools::project_to_axis_2d(p1, major_axis);
-  const double Q0 = GeometryTools::project_to_axis_2d(q0, major_axis);
-  const double Q1 = GeometryTools::project_to_axis_2d(q1, major_axis);
+  const double P0 = project_to_axis_2d(p0, major_axis);
+  const double P1 = project_to_axis_2d(p1, major_axis);
+  const double Q0 = project_to_axis_2d(q0, major_axis);
+  const double Q1 = project_to_axis_2d(q1, major_axis);
 
   // Case 2: both points on line (or almost)
-  if (std::abs(q0o) < DOLFIN_EPS and std::abs(q1o) < DOLFIN_EPS)
+  if (std::abs(q0o) < 3.0e-16 and std::abs(q1o) < 3.0e-16)
   {
     // Compute 1D intersection points
     const std::vector<double>
@@ -539,11 +334,11 @@ IntersectionConstruction::intersection_segment_segment_2d(const Point& p0,
   const double p_dist = v.norm();
   const double q_dist = w.norm();
   enum orientation { P0O, P1O, Q0O, Q1O };
-  const std::array<std::pair<double, orientation>, 4> oo
-    = {{ { std::abs(p0o)*p_dist, P0O },
-         { std::abs(p1o)*p_dist, P1O },
-         { std::abs(q0o)*q_dist, Q0O },
-         { std::abs(q1o)*q_dist, Q1O } }};
+  std::array<std::pair<double, orientation>, 4> oo
+		      = {{ { std::abs(p0o)*p_dist, P0O },
+			   { std::abs(p1o)*p_dist, P1O },
+			   { std::abs(q0o)*q_dist, Q0O },
+			   { std::abs(q1o)*q_dist, Q1O } }};
   const auto it = std::min_element(oo.begin(), oo.end());
 
   // Compute the intersection point
@@ -569,7 +364,7 @@ IntersectionConstruction::intersection_segment_segment_2d(const Point& p0,
   }
 
   // Project point to major axis and check if inside segment
-  const double X = GeometryTools::project_to_axis_2d(x, major_axis);
+  const double X = project_to_axis_2d(x, major_axis);
   if (CollisionPredicates::collides_segment_point_1d(P0, P1, X))
     return std::vector<Point>(1, x);
 
@@ -577,16 +372,13 @@ IntersectionConstruction::intersection_segment_segment_2d(const Point& p0,
 }
 //-----------------------------------------------------------------------------
 std::vector<Point>
-IntersectionConstruction::intersection_segment_segment_3d(const Point& p0,
-                                                          const Point& p1,
-                                                          const Point& q0,
-                                                          const Point& q1)
+IntersectionConstruction::intersection_segment_segment_3d(const Point& /*p0*/,
+                                                          const Point& /*p1*/,
+                                                          const Point& /*q0*/,
+                                                          const Point& /*q1*/)
 {
-#ifdef DOLFIN_GEOMETRY_PRINT
-  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
-#endif
   // This function is not used so no need to spend time on the implementation.
-  dolfin_not_implemented();
+  throw std::runtime_error("Not implemented");
   return std::vector<Point>();
 }
 //-----------------------------------------------------------------------------
@@ -597,9 +389,6 @@ IntersectionConstruction::intersection_triangle_segment_2d(const Point& p0,
                                                            const Point& q0,
                                                            const Point& q1)
 {
-#ifdef DOLFIN_GEOMETRY_PRINT
-  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
-#endif
   // The list of points (convex hull)
   std::vector<Point> points;
 
@@ -612,7 +401,7 @@ IntersectionConstruction::intersection_triangle_segment_2d(const Point& p0,
   add(points, intersection_segment_segment_2d(p0, p2, q0, q1));
   add(points, intersection_segment_segment_2d(p1, p2, q0, q1));
 
-  dolfin_assert(GeometryPredicates::is_finite(points));
+  assert(GeometryPredicates::is_finite(points));
   return unique(points);
 }
 //-----------------------------------------------------------------------------
@@ -623,9 +412,6 @@ IntersectionConstruction::_intersection_triangle_segment_3d(const Point& p0,
 							    const Point& q0,
 							    const Point& q1)
 {
-#ifdef DOLFIN_GEOMETRY_PRINT
-  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
-#endif
   // We consider the following 4 cases for the segment q0-q1
   // relative to the plane defined by the triangle p0-p1-p2:
   //
@@ -660,7 +446,7 @@ IntersectionConstruction::_intersection_triangle_segment_3d(const Point& p0,
   const double q1o = orient3d(p0, p1, p2, q1);
 
   // Case 0: points on the same side --> no intersection
-  if (same_sign(q0o, q1o))
+  if ((q0o > 0.0 and q1o > 0.0) or (q0o < 0.0 and q1o < 0.0))
     return std::vector<Point>();
 
   // Case 1: exactly one point in plane --> possible point intersection
@@ -671,14 +457,14 @@ IntersectionConstruction::_intersection_triangle_segment_3d(const Point& p0,
 
   // Compute plane normal and major axis
   const Point n = GeometryTools::cross_product(p0, p1, p2);
-  const std::size_t major_axis = GeometryTools::major_axis_3d(n);
+  const std::size_t major_axis = major_axis_3d(n);
 
   // Project points to major axis plane
-  const Point P0 = GeometryTools::project_to_plane_3d(p0, major_axis);
-  const Point P1 = GeometryTools::project_to_plane_3d(p1, major_axis);
-  const Point P2 = GeometryTools::project_to_plane_3d(p2, major_axis);
-  const Point Q0 = GeometryTools::project_to_plane_3d(q0, major_axis);
-  const Point Q1 = GeometryTools::project_to_plane_3d(q1, major_axis);
+  const Point P0 = project_to_plane_3d(p0, major_axis);
+  const Point P1 = project_to_plane_3d(p1, major_axis);
+  const Point P2 = project_to_plane_3d(p2, major_axis);
+  const Point Q0 = project_to_plane_3d(q0, major_axis);
+  const Point Q1 = project_to_plane_3d(q1, major_axis);
 
   // Case 2: both points in plane
   if (q0o == 0.0 and q1o == 0.0)
@@ -719,236 +505,33 @@ IntersectionConstruction::_intersection_triangle_segment_3d(const Point& p0,
   // Case 3: points on different sides (main case)
 
   // Check if segment does not collide with triangle
-  if (different_sign(orient3d(p0, p1, q0, q1), orient3d(p0, p1, q0, p2)) or
-      different_sign(orient3d(p1, p2, q0, q1), orient3d(p1, p2, q0, p0)) or
-      different_sign(orient3d(p2, p0, q0, q1), orient3d(p2, p0, q0, p1)))
-  {
+  if (orient3d(p0, p1, q0, q1)*orient3d(p0, p1, q0, p2) < 0 ||
+      orient3d(p1, p2, q0, q1)*orient3d(p1, p2, q0, p0) < 0 ||
+      orient3d(p2, p0, q0, q1)*orient3d(p2, p0, q0, p1) < 0)
     return std::vector<Point>();
-  }
 
-  // The segment and triangle collide. Compute the intersection point
-  // Shewchuk style
-  // const Point c = p0, d = p1, e = p2;
-  const double den = GeometryTools::determinant(q0 - q1, p1 - p0, p2 - p0);
+  // The segment and triangle collide
+  // Now compute intersection point
+  const double ratio_0 = std::abs(q0o) / (std::abs(q0o) + std::abs(q1o));
 
-  if (den != 0.0)
-  {
-    //   if (std::abs(den) < DOLFIN_EPS)
-    //     {
-    //       //return cgal_intersection_triangle_segment_3d(p0, p1, p2, q0, q1);
-
-    // #ifdef DOLFIN_ENABLE_GEOMETRY_DEBUGGING
-    //       std::cout << "use cgal since den = " << std::abs(den) << '\n';
-    //       const std::vector<Point> cgal = cgal_intersection_triangle_segment_3d(p0, p1, p2, q0, q1);
-    //       return std::vector<Point>{ cgal };
-    // #endif
-
-    //       // // Test bisection
-    //       // std::cout << "bisection\n";
-    //       // const Point X = bisection_3d(p0, p1, p2, q0, q1);
-
-    //       // std::cout << tools::drawtriangle({p0,p1,p2})<<tools::drawtriangle({q0,q1})<<'\n';
-    //       // std::cout << tools::print_std_vector({p0,p1,p2},"tri");
-    //       // std::cout << tools::print_std_vector({q0,q1},"seg");
-    //       // std::cout << tools::print_std_vector(cgal, "cgal");
-    //       // std::cout << tools::print_std_vector({X}, "X");
-    //       // std::cout << "std_bisct_err " << (X - cgal[0]).norm()<<'\n';
-
-    //       // // Test use projected points, then do bisection if possible
-    //       // const std::vector<Point> p2d = intersection_triangle_segment_2d(P0, P1, P2, Q0, Q1);
-    //       // if (p2d.size() == 0)
-    //       // {
-    //       // 	std::cout << "no 2d point intersection\n";
-    //       // }
-    //       // else if (p2d.size() == 1)
-    //       // {
-    //       // 	std::cout << "one 2d point intersection: " << tools::plot(p2d[0])<<'\n';
-    //       // }
-    //       // else if (p2d.size() == 2)
-    //       // {
-    //       // 	std::cout << "two 2d points intersections: " << tools::plot(p2d[0])<<tools::plot(p2d[1])<<'\n';
-    //       // 	Point y0bar = p2d[0];
-    //       // 	Point y1bar = p2d[1];
-
-    //       // 	// Make y0 be closest to q0
-    //       // 	const double d00 = (Q0 - y0bar).squared_norm();
-    //       // 	const double d01 = (Q0 - y1bar).squared_norm();
-    //       // 	if (d00 > d01)
-    //       // 	  std::swap(y0bar, y1bar);
-
-    //       // 	auto filter = [](const Point& w, std::size_t major_axis)
-    //       // 	  {
-    //       // 	    // Make x,y components the active components
-    //       // 	    switch (major_axis)
-    //       // 	    {
-    //       // 	      // How do we know ordering?
-    //       // 	    case 0: return Point(w[1], w[2], 0.0);
-    //       // 	    case 1: return Point(w[0], w[2], 0.0);
-    //       // 	    case 2: return Point(w[0], w[1], 0.0);
-    //       // 	    default: dolfin_assert("this should not happen"); return Point();
-    //       // 	    }
-    //       // 	  };
-
-    //       // 	const Point w = q1 - q0;
-    //       // 	const Point wbar = filter(w, major_axis);
-    //       // 	const Point q0bar = filter(q0, major_axis);
-    //       // 	const Point q1bar = filter(q1, major_axis);
-    //       // 	const double t = wbar.dot(y0bar - q0bar) / wbar.squared_norm();
-    //       // 	const double s = wbar.dot(y1bar - q1bar) / wbar.squared_norm();
-    //       // 	const Point y0 = q0 + t*w;
-    //       // 	const Point y1 = q1 + s*w;
-
-    //       // 	// Unproject these points and use for bisection
-    //       // 	std::vector<Point> p3d(2);
-    //       // 	switch (major_axis)
-    //       // 	{
-    //       // 	case 0:
-    //       // 	  p3d[0] = Point(y0.x(), p2d[0].x(), p2d[0].y());
-    //       // 	  p3d[1] = Point(y1.x(), p2d[1].x(), p2d[1].y());
-    //       // 	  break;
-    //       // 	case 1:
-    //       // 	  p3d[0] = Point(p2d[0].x(), y0.y(), p2d[0].y());
-    //       // 	  p3d[1] = Point(p2d[1].x(), y1.y(), p2d[1].y());
-    //       // 	  break;
-    //       // 	case 2:
-    //       // 	  p3d[0] = Point(p2d[0].x(), p2d[0].y(), y0.z());
-    //       // 	  p3d[1] = Point(p2d[1].x(), p2d[1].y(), y1.z());
-    //       // 	  break;
-    //       // 	}
-
-    //       // 	std::cout << "unprojected pts:\n"
-    //       // 		  << tools::plot(p3d[0])<<tools::plot(p3d[1])<<'\n';
-
-    //       // 	// Bisect if possible
-    //       // 	const double ao = orient3d(p0, p1, p2, p3d[0]);
-    //       // 	const double bo = orient3d(p0, p1, p2, p3d[1]);
-    //       // 	if (different_sign(ao, bo))
-    //       // 	{
-    //       // 	  const Point Y = bisection_3d(p0,p1,p2, p3d[0], p3d[1]);
-    //       // 	  std::cout << "proj pt " << tools::plot(Y)<<'\n';
-    //       // 	  std::cout << "proj_bisct_err " << (Y - cgal[0]).norm() << '\n';
-    //       // 	  return std::vector<Point>{ Y };
-    //       // 	}
-    //       // 	else
-    //       // 	{
-    //       // 	  std::cout << "same sign\n";
-    //       // 	}
-    //       // }
-    //       // else
-    //       // {
-    //       // 	std::cout << "many 2d point intersections " << p2d.size()<<'\n';
-    //       // }
-    //     }
-    //     else
-    //     {
-
-    const double num = orient3d(q0, p1, p2, p0);
-    const double alpha = num / den;
-    // return std::vector<Point>{ q0 + alpha*(q1 - q0) };
-
-    if (alpha < 1.0 - DOLFIN_EPS_LARGE)
-    {
-      return std::vector<Point>{ q0 + alpha*(q1 - q0) };
-    }
-    else
-    {
-      // Swap a, b: Recompute numerator. Denominator switches sign.
-      const double num = orient3d(q1, p1, p2, p0);
-      const double beta = -num / den;
-      return std::vector<Point>{ q1 + beta*(q0 - q1) };
-    }
-    // }
-  }
+  // Check ratio and return intersection point
+  if (ratio_0 < 1.0)
+    return std::vector<Point>{q0 + ratio_0*(q1 - q0)};
   else
   {
-    // Denominator is 0.0, i.e. line is approximately in the plane.
-    // Use alternative method.
-    const double ratio_0 = std::abs(q0o) / (std::abs(q0o) + std::abs(q1o));
-    // return std::vector<Point>{ q0 + ratio_0*(q1 - q0) };
-
-    if (ratio_0 < 1.0 - DOLFIN_EPS_LARGE)
-    {
-      return std::vector<Point>{q0 + ratio_0*(q1 - q0)};
-    }
-    else
-    {
-      const double ratio_1 = std::abs(q1o) / (std::abs(q0o) + std::abs(q1o));
-      return std::vector<Point>{q1 + ratio_1*(q0 - q1)};
-    }
+    const double ratio_1 = std::abs(q1o) / (std::abs(q0o) + std::abs(q1o));
+    return std::vector<Point>{q1 + ratio_1*(q0 - q1)};
   }
-
-
-  // // The segment and triangle collide
-  // // Now compute intersection point
-  // const double ratio_0 = std::abs(q0o) / (std::abs(q0o) + std::abs(q1o));
-
-  // if (ratio_0 > 0.3 and ratio_0 < 0.4)
-  // {
-  //   std::cout << '\n'<<"ratio_0 " << ratio_0<<' ' << (q0o)<<' '<<(q1o) << '\n';
-  //   std::cout << tools::drawtriangle({p0,p1,p2})<<tools::drawtriangle({q0,q1})<<'\n';
-
-  //   // const Point xw = (std::abs(q1o)*q0 + std::abs(q0o)*q1) / (std::abs(q0o) + std::abs(q1o));
-  //   // std::cout << "weight " << tools::plot(xw) << '\n';
-
-  //   // Shewchuk style
-  //   const Point a = q0, b = q1;
-  //   const Point c = p0, d = p1, e = p2;
-  //   const double num = orient3d(a,d,e,c);
-  //   const double den = GeometryTools::determinant(a-b, d-c, e-c);
-  //   const double alpha = num / den;
-  //   std::cout << "shewchuk " << num<<' '<<den<<' '<<alpha<<'\n';
-  //   if (std::abs(alpha) > 1.0-DOLFIN_EPS_LARGE)
-  //   {
-  //     // Swap a, b: Recompute numerator. Denominator switches sign.
-  //     const double num = orient3d(b,d,e,c);
-  //     const double alpha = -num / den;
-  //     const Point xs = b + alpha*(a-b);
-  //     std::cout << "swap " << tools::plot(xs)<<'\n';
-  //     return {xs};
-  //   }
-  //   else
-  //   {
-  //     const Point xs = a + alpha*(b-a);
-  //     std::cout << tools::plot(xs)<<'\n';
-  //     return {xs};
-  //   }
-  // }
-
-  // // // test 2d style
-  // // if (std::abs(q0o) < std::abs(q1o))
-  // // {
-  // //   const double ratio_0 = std::abs(q0o) / (std::abs(q0o) + std::abs(q1o));
-  // //   return std::vector<Point>{q0 + ratio_0*(q1 - q0)};
-  // // }
-  // // else
-  // // {
-  // //   const double ratio_1 = std::abs(q1o) / (std::abs(q0o) + std::abs(q1o));
-  // //   return std::vector<Point>{q1 + ratio_1*(q0 - q1)};
-  // // }
-
-  // // Check ratio and return intersection point
-  // if (ratio_0 < 1.0)
-  // {
-  //   return std::vector<Point>{q0 + ratio_0*(q1 - q0)};
-  // }
-  // else
-  // {
-  //   const double ratio_1 = std::abs(q1o) / (std::abs(q0o) + std::abs(q1o));
-  //   return std::vector<Point>{q1 + ratio_1*(q0 - q1)};
-  // }
 }
 //-----------------------------------------------------------------------------
 std::vector<Point>
-IntersectionConstruction::_intersection_tetrahedron_segment_3d(const Point& p0,
-                                                               const Point& p1,
-                                                               const Point& p2,
-                                                               const Point& p3,
-                                                               const Point& q0,
-                                                               const Point& q1)
+IntersectionConstruction::intersection_tetrahedron_segment_3d(const Point& p0,
+                                                              const Point& p1,
+                                                              const Point& p2,
+                                                              const Point& p3,
+                                                              const Point& q0,
+                                                              const Point& q1)
 {
-#ifdef DOLFIN_GEOMETRY_PRINT
-  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
-#endif
   // The list of points (convex hull)
   std::vector<Point> points;
 
@@ -962,7 +545,7 @@ IntersectionConstruction::_intersection_tetrahedron_segment_3d(const Point& p0,
   add(points, intersection_triangle_segment_3d(p0, p2, p3, q0, q1));
   add(points, intersection_triangle_segment_3d(p1, p2, p3, q0, q1));
 
-  dolfin_assert(GeometryPredicates::is_finite(points));
+  assert(GeometryPredicates::is_finite(points));
   return unique(points);
 }
 //-----------------------------------------------------------------------------
@@ -976,9 +559,6 @@ IntersectionConstruction::intersection_triangle_triangle_2d(const Point& p0,
                                                             const Point& q1,
                                                             const Point& q2)
 {
-#ifdef DOLFIN_GEOMETRY_PRINT
-  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
-#endif
   // The list of points (convex hull)
   std::vector<Point> points;
 
@@ -1001,21 +581,18 @@ IntersectionConstruction::intersection_triangle_triangle_2d(const Point& p0,
   add(points, intersection_segment_segment_2d(p1, p2, q0, q2));
   add(points, intersection_segment_segment_2d(p1, p2, q1, q2));
 
-  dolfin_assert(GeometryPredicates::is_finite(points));
+  assert(GeometryPredicates::is_finite(points));
   return unique(points);
 }
 //-----------------------------------------------------------------------------
 std::vector<Point>
-IntersectionConstruction::_intersection_triangle_triangle_3d(const Point& p0,
-                                                             const Point& p1,
-                                                             const Point& p2,
-                                                             const Point& q0,
-                                                             const Point& q1,
-                                                             const Point& q2)
+IntersectionConstruction::intersection_triangle_triangle_3d(const Point& p0,
+                                                            const Point& p1,
+                                                            const Point& p2,
+                                                            const Point& q0,
+                                                            const Point& q1,
+                                                            const Point& q2)
 {
-#ifdef DOLFIN_GEOMETRY_PRINT
-  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
-#endif
   // The list of points (convex hull)
   std::vector<Point> points;
 
@@ -1035,93 +612,53 @@ IntersectionConstruction::_intersection_triangle_triangle_3d(const Point& p0,
   add(points, intersection_triangle_segment_3d(q0, q1, q2, p0, p2));
   add(points, intersection_triangle_segment_3d(q0, q1, q2, p1, p2));
 
-  dolfin_assert(GeometryPredicates::is_finite(points));
+  assert(GeometryPredicates::is_finite(points));
   return unique(points);
 }
 //-----------------------------------------------------------------------------
 std::vector<Point>
-IntersectionConstruction::_intersection_tetrahedron_triangle_3d(const Point& p0,
-                                                                const Point& p1,
-                                                                const Point& p2,
-                                                                const Point& p3,
-                                                                const Point& q0,
-                                                                const Point& q1,
-                                                                const Point& q2)
+IntersectionConstruction::intersection_tetrahedron_triangle_3d(const Point& p0,
+                                                               const Point& p1,
+                                                               const Point& p2,
+                                                               const Point& p3,
+                                                               const Point& q0,
+                                                               const Point& q1,
+                                                               const Point& q2)
 {
-#ifdef DOLFIN_GEOMETRY_PRINT
-  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
-  std::cout << tools::drawtet(p0,p1,p2,p3)<<'\n'
-            << tools::drawtriangle(q0,q1,q2)<<'\n';
-#endif
   // The list of points (convex hull)
   std::vector<Point> points;
 
   // Add point intersections (3 + 4 = 7)
   add(points, intersection_tetrahedron_point_3d(p0, p1, p2, p3, q0));
-  //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_tetrahedron_point_3d(p0, p1, p2, p3, q1));
-    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_tetrahedron_point_3d(p0, p1, p2, p3, q2));
-    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_point_3d(q0, q1, q2, p0));
-    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_point_3d(q0, q1, q2, p1));
-    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_point_3d(q0, q1, q2, p2));
-    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_point_3d(q0, q1, q2, p3));
-    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
 
   // Add triangle-segment intersections (4 x 3 + 1 x 6 = 18)
   add(points, intersection_triangle_segment_3d(p0, p1, p2, q0, q1));
-    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(p0, p1, p2, q0, q2));
-    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(p0, p1, p2, q1, q2));
-    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(p0, p1, p3, q0, q1));
-    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(p0, p1, p3, q0, q2));
-    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(p0, p1, p3, q1, q2));
-    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(p0, p2, p3, q0, q1));
-    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(p0, p2, p3, q0, q2));
-    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(p0, p2, p3, q1, q2));
-    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(p1, p2, p3, q0, q1));
-    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(p1, p2, p3, q0, q2));
-    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(p1, p2, p3, q1, q2));
-    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(q0, q1, q2, p0, p1));
-    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(q0, q1, q2, p0, p2));
-    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(q0, q1, q2, p0, p3));
-    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(q0, q1, q2, p1, p2));
-    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(q0, q1, q2, p1, p3));
-    //std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
   add(points, intersection_triangle_segment_3d(q0, q1, q2, p2, p3));
-  // std::cout << __LINE__<<'\n'; GeometryDebugging::print(points);
 
-  dolfin_assert(GeometryPredicates::is_finite(points));
-  const std::vector<Point> u = unique(points);  
-
-#ifdef DOLFIN_GEOMETRY_PRINT
-  std::cout << "  " << __FUNCTION__ << ' ' << __LINE__ << " done:\n";
-  GeometryDebugging::print(u);
-#endif
-  return u;
-  
-  // dolfin_assert(GeometryPredicates::is_finite(points));
-  // return unique(points);
-
+  assert(GeometryPredicates::is_finite(points));
+  return unique(points);
 }
 //-----------------------------------------------------------------------------
 std::vector<Point>
@@ -1134,9 +671,6 @@ IntersectionConstruction::_intersection_tetrahedron_tetrahedron_3d(const Point& 
 								   const Point& q2,
 								   const Point& q3)
 {
-#ifdef DOLFIN_GEOMETRY_PRINT
-  std::cout << __FUNCTION__ << ' ' << __LINE__ << '\n';
-#endif
   // The list of points (convex hull)
   std::vector<Point> points;
 
@@ -1149,8 +683,6 @@ IntersectionConstruction::_intersection_tetrahedron_tetrahedron_3d(const Point& 
   add(points, intersection_tetrahedron_point_3d(q0, q1, q2, q3, p1));
   add(points, intersection_tetrahedron_point_3d(q0, q1, q2, q3, p2));
   add(points, intersection_tetrahedron_point_3d(q0, q1, q2, q3, p3));
-
-  // Let's hope we got this right... :-)
 
   // Add triangle-segment intersections (4 x 6 + 4 x 6 = 48)
   add(points, intersection_triangle_segment_3d(p0, p1, p2, q0, q1));
@@ -1202,7 +734,7 @@ IntersectionConstruction::_intersection_tetrahedron_tetrahedron_3d(const Point& 
   add(points, intersection_triangle_segment_3d(q1, q2, q3, p1, p3));
   add(points, intersection_triangle_segment_3d(q1, q2, q3, p2, p3));
 
-  dolfin_assert(GeometryPredicates::is_finite(points));
+  assert(GeometryPredicates::is_finite(points));
   return unique(points);
 }
 //-----------------------------------------------------------------------------
@@ -1213,73 +745,8 @@ IntersectionConstruction::intersection_triangle_segment_3d(const Point& p0,
 							   const Point& q0,
 							   const Point& q1)
 {
-#ifdef DOLFIN_ENABLE_GEOMETRY_DEBUGGING
-  const auto dolfin = _intersection_triangle_segment_3d(p0, p1, p2, q0, q1);
-  const auto cgal = cgal_intersection_triangle_segment_3d(p0, p1, p2, q0, q1);
-
-  // std::cout << "dolfin " << dolfin.size()<<'\n';
-  // if (dolfin.size())
-  // {
-  //   for (const Point& p : dolfin)
-  //     std::cout << tools::plot(p);
-  //   std::cout << '\n';
-  // }
-  // std::cout << "cgal " << cgal.size() << '\n';
-  // if (cgal.size())
-  // {
-  //   for (const Point& p : cgal)
-  //     std::cout << tools::plot(p);
-  //   std::cout << '\n';
-  // }
-
-  // if (dolfin.size() == cgal.size())
-  //   return cgal;
-  // else
-  //   return dolfin;
-
-  return CGAL_INTERSECTION_CHECK(dolfin, cgal);
-  // return CGAL_INTERSECTION_CHECK(_intersection_triangle_segment_3d(p0, p1, p2, q0, q1),
-  //   				 cgal_intersection_triangle_segment_3d(p0, p1, p2, q0, q1));
-#endif
-  return _intersection_triangle_segment_3d(p0, p1, p2, q0, q1);
-}
-//-----------------------------------------------------------------------------
-std::vector<Point>
-IntersectionConstruction::intersection_triangle_triangle_3d(const Point& p0,
-                                                            const Point& p1,
-                                                            const Point& p2,
-                                                            const Point& q0,
-                                                            const Point& q1,
-                                                            const Point& q2)
-{
-  // return CGAL_INTERSECTION_CHECK(_intersection_triangle_triangle_3d(p0, p1, p2, q0, q1, q2),
-  // 				 cgal_intersection_triangle_triangle_3d(p0, p1, p2, q0, q1, q2));
-  return _intersection_triangle_triangle_3d(p0, p1, p2, q0, q1, q2);
-}
-//-----------------------------------------------------------------------------
-std::vector<Point>
-IntersectionConstruction::intersection_tetrahedron_segment_3d(const Point& p0,
-                                                              const Point& p1,
-                                                              const Point& p2,
-                                                              const Point& p3,
-                                                              const Point& q0,
-                                                              const Point& q1)
-{
-  return _intersection_tetrahedron_segment_3d(p0, p1, p2, p3, q0, q1);
-}
-//-----------------------------------------------------------------------------
-std::vector<Point>
-IntersectionConstruction::intersection_tetrahedron_triangle_3d(const Point& p0,
-                                                               const Point& p1,
-                                                               const Point& p2,
-                                                               const Point& p3,
-                                                               const Point& q0,
-                                                               const Point& q1,
-                                                               const Point& q2)
-{
-  // return CGAL_INTERSECTION_CHECK(_intersection_tetrahedron_triangle_3d(p0, p1, p2, p3, q0, q1, q2),
-  // 				 cgal_intersection_tetrahedron_triangle_3d(p0, p1, p2, p3, q0, q1, q2));
-  return _intersection_tetrahedron_triangle_3d(p0, p1, p2, p3, q0, q1, q2);
+  return CGAL_INTERSECTION_CHECK(_intersection_triangle_segment_3d(p0, p1, p2, q0, q1),
+				 cgal_intersection_triangle_segment_3d(p0, p1, p2, q0, q1));
 }
 //-----------------------------------------------------------------------------
 std::vector<Point>
@@ -1292,8 +759,33 @@ IntersectionConstruction::intersection_tetrahedron_tetrahedron_3d(const Point& p
 								  const Point& q2,
 								  const Point& q3)
 {
-  // return CGAL_INTERSECTION_CHECK(_intersection_tetrahedron_tetrahedron_3d(p0, p1, p2, p3, q0, q1, q2, q3),
-  // 				 cgal_intersection_tetrahedron_tetrahedron_3d(p0, p1, p2, p3, q0, q1, q2, q3));
-  return _intersection_tetrahedron_tetrahedron_3d(p0, p1, p2, p3, q0, q1, q2, q3);
+  return CGAL_INTERSECTION_CHECK(_intersection_tetrahedron_tetrahedron_3d(p0, p1, p2, p3, q0, q1, q2, q3),
+				 cgal_intersection_tetrahedron_tetrahedron_3d(p0, p1, p2, p3, q0, q1, q2, q3));
+}
+
+// ============================================================================
+// dolfin::IntersectionConstruction -- high-level MeshEntity wrapper
+// ============================================================================
+#include <dolfin/mesh/MeshEntity.h>
+#include <dolfin/mesh/MeshGeometry.h>
+
+std::vector<simpex::Point>
+dolfin::IntersectionConstruction::intersection(const dolfin::MeshEntity& entity_0,
+                                               const dolfin::MeshEntity& entity_1)
+{
+  const dolfin::MeshGeometry& g0 = entity_0.mesh().geometry();
+  const dolfin::MeshGeometry& g1 = entity_1.mesh().geometry();
+  const unsigned int* v0 = entity_0.entities(0);
+  const unsigned int* v1 = entity_1.entities(0);
+
+  std::vector<simpex::Point> points_0(entity_0.dim() + 1);
+  std::vector<simpex::Point> points_1(entity_1.dim() + 1);
+  for (std::size_t i = 0; i <= entity_0.dim(); ++i)
+    points_0[i] = g0.point(v0[i]);
+  for (std::size_t i = 0; i <= entity_1.dim(); ++i)
+    points_1[i] = g1.point(v1[i]);
+
+  return simpex::IntersectionConstruction::intersection(points_0, points_1,
+                                                        g0.dim());
 }
 //-----------------------------------------------------------------------------

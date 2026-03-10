@@ -21,49 +21,19 @@
 #ifndef __COLLISION_PREDICATES_H
 #define __COLLISION_PREDICATES_H
 
-namespace dolfin
+#include <cstddef>
+
+namespace simpex
 {
 
   // Forward declarations
   class Point;
-  class MeshEntity;
-
   /// This class implements algorithms for detecting pairwise
   /// collisions between mesh entities of varying dimensions.
 
   class CollisionPredicates
   {
   public:
-
-    //--- High-level collision detection predicates ---
-
-    /// Check whether entity collides with point.
-    ///
-    /// *Arguments*
-    ///     entity (_MeshEntity_)
-    ///         The entity.
-    ///     point (_Point_)
-    ///         The point.
-    ///
-    /// *Returns*
-    ///     bool
-    ///         True iff entity collides with cell.
-    static bool collides(const MeshEntity& entity,
-                         const Point& point);
-
-    /// Check whether two entities collide.
-    ///
-    /// *Arguments*
-    ///     entity_0 (_MeshEntity_)
-    ///         The first entity.
-    ///     entity_1 (_MeshEntity_)
-    ///         The second entity.
-    ///
-    /// *Returns*
-    ///     bool
-    ///         True iff entity collides with cell.
-    static bool collides(const MeshEntity& entity_0,
-                         const MeshEntity& entity_1);
 
     //--- Low-level collision detection predicates ---
 
@@ -309,8 +279,88 @@ namespace dolfin
                                                      const Point& q1,
                                                      const Point& q2,
                                                      const Point& q3);
+
+    // Helper: point-in-triangle assuming the point is already in the triangle's plane
+    // (skips the orient3d coplanarity check).
+    static bool _collides_triangle_point_3d_in_plane(const Point& p0,
+                                                      const Point& p1,
+                                                      const Point& p2,
+                                                      const Point& point);
+
+    // Helper: triangle-segment collision with pre-computed plane orientations
+    // rsta = orient3d(r,s,t,a), rstb = orient3d(r,s,t,b)
+    static bool _collides_triangle_segment_3d_with_hint(const Point& r,
+                                                         const Point& s,
+                                                         const Point& t,
+                                                         const Point& a,
+                                                         const Point& b,
+                                                         double rsta,
+                                                         double rstb);
+
+    // Helper: 2D segment-point test with pre-computed orient2d value.
+    // op01_pt = orient2d(p0, p1, point)
+    static bool _collides_segment_point_2d_with_hint(const Point& p0,
+                                                      const Point& p1,
+                                                      const Point& point,
+                                                      double op01_pt);
+
+    // Helper: 2D segment-segment collision with all four orient2d values
+    // pre-computed.
+    // pq0 = orient2d(p0,p1,q0)  pq1 = orient2d(p0,p1,q1)
+    // qp0 = orient2d(q0,q1,p0)  qp1 = orient2d(q0,q1,p1)
+    static bool _collides_segment_segment_2d_with_hint(const Point& p0,
+                                                        const Point& p1,
+                                                        const Point& q0,
+                                                        const Point& q1,
+                                                        double pq0,
+                                                        double pq1,
+                                                        double qp0,
+                                                        double qp1);
+
+    // Helper: 2D triangle-point collision with pre-computed edge orientations.
+    // ref   = orient2d(p0,p1,p2)
+    // o01   = orient2d(p0,p1,point)
+    // o12   = orient2d(p1,p2,point)
+    // o20   = orient2d(p2,p0,point)
+    static bool _collides_triangle_point_2d_with_hint(const Point& p0,
+                                                       const Point& p1,
+                                                       const Point& p2,
+                                                       const Point& point,
+                                                       double ref,
+                                                       double o01,
+                                                       double o12,
+                                                       double o20);
   };
 
+} // namespace simpex
+
+// ============================================================================
+// dolfin::CollisionPredicates
+//
+// Extends simpex::CollisionPredicates with high-level methods that accept
+// dolfin MeshEntity objects.  Existing code using dolfin::CollisionPredicates
+// therefore continues to work without modification.
+// ============================================================================
+
+namespace dolfin
+{
+  // Forward declaration (avoids circular #include with mesh headers).
+  class MeshEntity;
+
+  /// Collision predicates for dolfin mesh entities and low-level simplex geometry.
+  class CollisionPredicates : public simpex::CollisionPredicates
+  {
+  public:
+    //--- High-level collision detection predicates (dolfin mesh entities) ---
+
+    /// Check whether entity collides with point.
+    static bool collides(const MeshEntity& entity,
+                         const simpex::Point& point);
+
+    /// Check whether two entities collide.
+    static bool collides(const MeshEntity& entity_0,
+                         const MeshEntity& entity_1);
+  };
 }
 
 #endif
