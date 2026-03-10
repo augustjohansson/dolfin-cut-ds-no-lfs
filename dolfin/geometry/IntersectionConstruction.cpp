@@ -28,6 +28,7 @@
 #include "CollisionPredicates.h"
 #include "IntersectionConstruction.h"
 #include "CGALExactArithmetic.h"
+#include <algorithm>
 
 //#ifdef DOLFIN_GEOMETRY_PRINT
 #include "../dolfin_simplex_tools.h"

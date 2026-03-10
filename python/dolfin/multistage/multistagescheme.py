@@ -26,17 +26,17 @@ passed to a RKSolver or PointIntegralSolver
 
 import numpy as np
 import functools
-import ufl
+import ufl_legacy as ufl
 
 import dolfin.cpp as cpp
 from dolfin.function.constant import Constant
 from dolfin.function.expression import Expression
 from dolfin.function.function import Function
 from dolfin.fem.formmanipulations import derivative, adjoint
-from ufl import action as ufl_action
+from ufl_legacy import action as ufl_action
 from dolfin.fem.form import Form
-import ufl.algorithms
-from ufl.algorithms import expand_derivatives
+import ufl_legacy.algorithms
+from ufl_legacy.algorithms import expand_derivatives
 
 # FIXME: Add support for algebraic parts (at least for implicit)
 # FIXME: Add support for implicit/explicit split ala IMEX schemes
@@ -147,13 +147,13 @@ def _time_dependent_expressions(rhs_form, time):
 
 def _replace_dict_time_dependent_expression(time_dep_expressions, time,
                                             dt, c):
-    assert(isinstance(c, float))
+    assert (isinstance(c, float))
     replace_dict = {}
     if c == 0.0 or not time_dep_expressions:
         return replace_dict
     new_time = Expression("time + c*dt", time=time, c=c, dt=dt, degree=0)
     for expr, c_names in list(time_dep_expressions.items()):
-        assert(isinstance(expr, Expression))
+        assert (isinstance(expr, Expression))
         kwargs = dict(name=expr.name(), label=expr.label(),
                       element=expr.ufl_element(), **expr._user_parameters)
         for c_name in c_names:
