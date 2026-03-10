@@ -14,7 +14,7 @@
 
 #include "Point.h"
 
-namespace simpex
+namespace dolfin
 {
 
   /// Initialize tolerances for exact arithmetic
@@ -28,7 +28,7 @@ namespace simpex
   /// counter-clockwise.
   double _orient2d(const double* a, const double* b, const double* c);
 
-  /// Convenience function using simpex::Point
+  /// Convenience function using dolfin::Point
   inline double orient2d(const Point& a, const Point& b, const Point& c)
   {
     return _orient2d(a.coordinates(), b.coordinates(), c.coordinates());
@@ -39,7 +39,7 @@ namespace simpex
   /// are oriented according to the left hand rule.
   double _orient3d(const double* a, const double* b, const double* c, const double* d);
 
-  /// Convenience function using simpex::Point
+  /// Convenience function using dolfin::Point
   inline double orient3d(const Point& a, const Point& b, const Point& c, const Point& d)
   {
     return _orient3d(a.coordinates(), b.coordinates(), c.coordinates(), d.coordinates());

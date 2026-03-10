@@ -24,7 +24,7 @@
 #include <vector>
 #include "Point.h"
 
-namespace simpex
+namespace dolfin
 {
 
   /// This class implements algorithms for triangulating convex
@@ -80,8 +80,7 @@ namespace simpex
     _triangulate_graham_scan_3d(const std::vector<Point>& pm);
   };
 
-} // end namespace simpex
+} // end namespace dolfin
 
-namespace dolfin { using ConvexTriangulation = simpex::ConvexTriangulation; }
 
 #endif

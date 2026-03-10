@@ -31,7 +31,7 @@
 #include "IntersectionConstruction.h"
 #include "predicates.h"
 
-using namespace simpex;
+using namespace dolfin;
 
 //-----------------------------------------------------------------------------
 namespace

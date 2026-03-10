@@ -56,7 +56,7 @@
 #include <cassert>
 
 // Check that results from SIMPEX and CGAL match
-namespace simpex
+namespace dolfin
 {
   //---------------------------------------------------------------------------
   // Functions to compare results between SIMPEX and CGAL
@@ -111,7 +111,7 @@ namespace simpex
     }
     return dolfin_result;
   }
-} // end namespace simpex
+} // end namespace dolfin
 //-----------------------------------------------------------------------------
 // Comparison macro that calls comparison function
 #define CHECK_CGAL(RESULT_SIMPEX, RESULT_CGAL) \
@@ -188,50 +188,50 @@ namespace
     return Point_3(a, b, c);
   }
   //-----------------------------------------------------------------------------
-  inline Point_2 convert_to_cgal_2d(const simpex::Point& p)
+  inline Point_2 convert_to_cgal_2d(const dolfin::Point& p)
   {
     return Point_2(p[0], p[1]);
   }
   //-----------------------------------------------------------------------------
-  inline Point_3 convert_to_cgal_3d(const simpex::Point& p)
+  inline Point_3 convert_to_cgal_3d(const dolfin::Point& p)
   {
     return Point_3(p[0], p[1], p[2]);
   }
   //-----------------------------------------------------------------------------
-  inline Segment_2 convert_to_cgal_2d(const simpex::Point& a,
-				      const simpex::Point& b)
+  inline Segment_2 convert_to_cgal_2d(const dolfin::Point& a,
+				      const dolfin::Point& b)
   {
     return Segment_2(convert_to_cgal_2d(a), convert_to_cgal_2d(b));
   }
   //-----------------------------------------------------------------------------
-  inline Segment_3 convert_to_cgal_3d(const simpex::Point& a,
-				      const simpex::Point& b)
+  inline Segment_3 convert_to_cgal_3d(const dolfin::Point& a,
+				      const dolfin::Point& b)
   {
     return Segment_3(convert_to_cgal_3d(a), convert_to_cgal_3d(b));
   }
   //-----------------------------------------------------------------------------
-  inline Triangle_2 convert_to_cgal_2d(const simpex::Point& a,
-				       const simpex::Point& b,
-				       const simpex::Point& c)
+  inline Triangle_2 convert_to_cgal_2d(const dolfin::Point& a,
+				       const dolfin::Point& b,
+				       const dolfin::Point& c)
   {
     return Triangle_2(convert_to_cgal_2d(a),
 		      convert_to_cgal_2d(b),
 		      convert_to_cgal_2d(c));
   }
   //-----------------------------------------------------------------------------
-  inline Triangle_3 convert_to_cgal_3d(const simpex::Point& a,
-				       const simpex::Point& b,
-				       const simpex::Point& c)
+  inline Triangle_3 convert_to_cgal_3d(const dolfin::Point& a,
+				       const dolfin::Point& b,
+				       const dolfin::Point& c)
   {
     return Triangle_3(convert_to_cgal_3d(a),
 		      convert_to_cgal_3d(b),
 		      convert_to_cgal_3d(c));
   }
   //-----------------------------------------------------------------------------
-  inline Tetrahedron_3 convert_to_cgal_3d(const simpex::Point& a,
-					  const simpex::Point& b,
-					  const simpex::Point& c,
-					  const simpex::Point& d)
+  inline Tetrahedron_3 convert_to_cgal_3d(const dolfin::Point& a,
+					  const dolfin::Point& b,
+					  const dolfin::Point& c,
+					  const dolfin::Point& d)
   {
     return Tetrahedron_3(convert_to_cgal_3d(a),
 			 convert_to_cgal_3d(b),
@@ -239,23 +239,23 @@ namespace
 			 convert_to_cgal_3d(d));
   }
   //-----------------------------------------------------------------------------
-  inline bool is_degenerate_2d(const simpex::Point& a,
-			       const simpex::Point& b)
+  inline bool is_degenerate_2d(const dolfin::Point& a,
+			       const dolfin::Point& b)
   {
     const Segment_2 s(convert_to_cgal_2d(a), convert_to_cgal_2d(b));
     return s.is_degenerate();
   }
   //-----------------------------------------------------------------------------
-  inline bool is_degenerate_3d(const simpex::Point& a,
-			       const simpex::Point& b)
+  inline bool is_degenerate_3d(const dolfin::Point& a,
+			       const dolfin::Point& b)
   {
     const Segment_3 s(convert_to_cgal_3d(a), convert_to_cgal_3d(b));
     return s.is_degenerate();
   }
   //-----------------------------------------------------------------------------
-  inline bool is_degenerate_2d(const simpex::Point& a,
-			       const simpex::Point& b,
-			       const simpex::Point& c)
+  inline bool is_degenerate_2d(const dolfin::Point& a,
+			       const dolfin::Point& b,
+			       const dolfin::Point& c)
   {
     const Triangle_2 t(convert_to_cgal_2d(a),
 		       convert_to_cgal_2d(b),
@@ -263,9 +263,9 @@ namespace
     return t.is_degenerate();
   }
   //-----------------------------------------------------------------------------
-  inline bool is_degenerate_3d(const simpex::Point& a,
-			       const simpex::Point& b,
-			       const simpex::Point& c)
+  inline bool is_degenerate_3d(const dolfin::Point& a,
+			       const dolfin::Point& b,
+			       const dolfin::Point& c)
   {
     const Triangle_3 t(convert_to_cgal_3d(a),
 		       convert_to_cgal_3d(b),
@@ -273,10 +273,10 @@ namespace
     return t.is_degenerate();
   }
   //-----------------------------------------------------------------------------
-  inline bool is_degenerate_3d(const simpex::Point& a,
-			       const simpex::Point& b,
-			       const simpex::Point& c,
-			       const simpex::Point& d)
+  inline bool is_degenerate_3d(const dolfin::Point& a,
+			       const dolfin::Point& b,
+			       const dolfin::Point& c,
+			       const dolfin::Point& d)
   {
     const Tetrahedron_3 t(convert_to_cgal_3d(a),
 			  convert_to_cgal_3d(b),
@@ -285,65 +285,65 @@ namespace
     return t.is_degenerate();
   }
   //-----------------------------------------------------------------------------
-  inline simpex::Point convert_from_cgal(const Point_2& p)
+  inline dolfin::Point convert_from_cgal(const Point_2& p)
   {
-    return simpex::Point(CGAL::to_double(p.x()),CGAL::to_double(p.y()));
+    return dolfin::Point(CGAL::to_double(p.x()),CGAL::to_double(p.y()));
   }
   //-----------------------------------------------------------------------------
-  inline simpex::Point convert_from_cgal(const Point_3& p)
+  inline dolfin::Point convert_from_cgal(const Point_3& p)
   {
-    return simpex::Point(CGAL::to_double(p.x()),
+    return dolfin::Point(CGAL::to_double(p.x()),
 			 CGAL::to_double(p.y()),
 			 CGAL::to_double(p.z()));
   }
   //-----------------------------------------------------------------------------
-  inline std::vector<simpex::Point> convert_from_cgal(const Segment_2& s)
+  inline std::vector<dolfin::Point> convert_from_cgal(const Segment_2& s)
   {
-    const std::vector<simpex::Point> triangulation =
-      {{ simpex::Point(CGAL::to_double(s.vertex(0)[0]),
+    const std::vector<dolfin::Point> triangulation =
+      {{ dolfin::Point(CGAL::to_double(s.vertex(0)[0]),
 		       CGAL::to_double(s.vertex(0)[1])),
-      	 simpex::Point(CGAL::to_double(s.vertex(1)[0]),
+      	 dolfin::Point(CGAL::to_double(s.vertex(1)[0]),
 		       CGAL::to_double(s.vertex(1)[1]))
 	}};
     return triangulation;
   }
   //-----------------------------------------------------------------------------
-  inline std::vector<simpex::Point> convert_from_cgal(const Segment_3& s)
+  inline std::vector<dolfin::Point> convert_from_cgal(const Segment_3& s)
   {
-    const std::vector<simpex::Point> triangulation =
-      {{ simpex::Point(CGAL::to_double(s.vertex(0)[0]),
+    const std::vector<dolfin::Point> triangulation =
+      {{ dolfin::Point(CGAL::to_double(s.vertex(0)[0]),
 		       CGAL::to_double(s.vertex(0)[1]),
 		       CGAL::to_double(s.vertex(0)[2])),
-      	 simpex::Point(CGAL::to_double(s.vertex(1)[0]),
+      	 dolfin::Point(CGAL::to_double(s.vertex(1)[0]),
 		       CGAL::to_double(s.vertex(1)[1]),
 		       CGAL::to_double(s.vertex(1)[2]))
 	}};
     return triangulation;
   }
   //-----------------------------------------------------------------------------
-  inline std::vector<simpex::Point> convert_from_cgal(const Triangle_2& t)
+  inline std::vector<dolfin::Point> convert_from_cgal(const Triangle_2& t)
   {
-    const std::vector<simpex::Point> triangulation =
-      {{ simpex::Point(CGAL::to_double(t.vertex(0)[0]),
+    const std::vector<dolfin::Point> triangulation =
+      {{ dolfin::Point(CGAL::to_double(t.vertex(0)[0]),
 		       CGAL::to_double(t.vertex(0)[1])),
-      	 simpex::Point(CGAL::to_double(t.vertex(2)[0]),
+      	 dolfin::Point(CGAL::to_double(t.vertex(2)[0]),
 		       CGAL::to_double(t.vertex(2)[1])),
-      	 simpex::Point(CGAL::to_double(t.vertex(1)[0]),
+      	 dolfin::Point(CGAL::to_double(t.vertex(1)[0]),
 		       CGAL::to_double(t.vertex(1)[1]))
 	}};
     return triangulation;
   }
   //-----------------------------------------------------------------------------
-  inline std::vector<simpex::Point> convert_from_cgal(const Triangle_3& t)
+  inline std::vector<dolfin::Point> convert_from_cgal(const Triangle_3& t)
   {
-    const std::vector<simpex::Point> triangulation =
-      {{ simpex::Point(CGAL::to_double(t.vertex(0)[0]),
+    const std::vector<dolfin::Point> triangulation =
+      {{ dolfin::Point(CGAL::to_double(t.vertex(0)[0]),
 		       CGAL::to_double(t.vertex(0)[1]),
 		       CGAL::to_double(t.vertex(0)[2])),
-      	 simpex::Point(CGAL::to_double(t.vertex(2)[0]),
+      	 dolfin::Point(CGAL::to_double(t.vertex(2)[0]),
 		       CGAL::to_double(t.vertex(2)[1]),
 		       CGAL::to_double(t.vertex(2)[2])),
-      	 simpex::Point(CGAL::to_double(t.vertex(1)[0]),
+      	 dolfin::Point(CGAL::to_double(t.vertex(1)[0]),
 		       CGAL::to_double(t.vertex(1)[1]),
 		       CGAL::to_double(t.vertex(1)[2]))
 	}};
@@ -351,8 +351,8 @@ namespace
   }
   //-----------------------------------------------------------------------------
   inline
-  std::vector<std::vector<simpex::Point>>
-  triangulate_polygon_2d(const std::vector<simpex::Point>& points)
+  std::vector<std::vector<dolfin::Point>>
+  triangulate_polygon_2d(const std::vector<dolfin::Point>& points)
   {
     // Convert points
     std::vector<Point_2> pcgal(points.size());
@@ -364,7 +364,7 @@ namespace
     tcgal.insert(pcgal.begin(), pcgal.end());
 
     // Convert back
-    std::vector<std::vector<simpex::Point>> t;
+    std::vector<std::vector<dolfin::Point>> t;
     for (Triangulation_2::Finite_faces_iterator fit = tcgal.finite_faces_begin();
 	 fit != tcgal.finite_faces_end(); ++fit)
     {
@@ -377,17 +377,17 @@ namespace
   }
   //-----------------------------------------------------------------------------
   inline
-  std::vector<std::vector<simpex::Point>>
-  triangulate_polygon_3d(const std::vector<simpex::Point>& /*points*/)
+  std::vector<std::vector<dolfin::Point>>
+  triangulate_polygon_3d(const std::vector<dolfin::Point>& /*points*/)
   {
     // FIXME
     assert(false); // not implemented / unexpected
-    return std::vector<std::vector<simpex::Point>>();
+    return std::vector<std::vector<dolfin::Point>>();
   }
   //-----------------------------------------------------------------------------
 }
 
-namespace simpex
+namespace dolfin
 {
   //---------------------------------------------------------------------------
   // Reference implementations of SIMPEX collision detection predicates

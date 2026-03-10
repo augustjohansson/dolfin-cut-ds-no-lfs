@@ -24,8 +24,10 @@
 #include <cstddef>
 #include "Point.h"
 
-namespace simpex
+namespace dolfin
 {
+  // Forward declaration (avoids circular #include with mesh headers).
+  class MeshEntity;
 
   /// This class implements algorithms for detecting pairwise
   /// collisions between mesh entities of varying dimensions.
@@ -182,6 +184,16 @@ namespace simpex
                                                     const Point& q2,
 						    const Point& q3);
 
+    //--- High-level collision detection predicates (dolfin mesh entities) ---
+
+    /// Check whether entity collides with point.
+    static bool collides(const MeshEntity& entity,
+                         const Point& point);
+
+    /// Check whether two entities collide.
+    static bool collides(const MeshEntity& entity_0,
+                         const MeshEntity& entity_1);
+
   private:
 
     // Implementation of collision detection predicates
@@ -331,35 +343,4 @@ namespace simpex
                                                        double o20);
   };
 
-} // namespace simpex
-
-// ============================================================================
-// dolfin::CollisionPredicates
-//
-// Extends simpex::CollisionPredicates with high-level methods that accept
-// dolfin MeshEntity objects.  Existing code using dolfin::CollisionPredicates
-// therefore continues to work without modification.
-// ============================================================================
-
-namespace dolfin
-{
-  // Forward declaration (avoids circular #include with mesh headers).
-  class MeshEntity;
-
-  /// Collision predicates for dolfin mesh entities and low-level simplex geometry.
-  class CollisionPredicates : public simpex::CollisionPredicates
-  {
-  public:
-    //--- High-level collision detection predicates (dolfin mesh entities) ---
-
-    /// Check whether entity collides with point.
-    static bool collides(const MeshEntity& entity,
-                         const simpex::Point& point);
-
-    /// Check whether two entities collide.
-    static bool collides(const MeshEntity& entity_0,
-                         const MeshEntity& entity_1);
-  };
-}
-
-#endif
+} // namespace dolfin

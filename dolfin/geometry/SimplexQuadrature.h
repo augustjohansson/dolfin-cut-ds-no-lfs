@@ -22,8 +22,11 @@
 #include "Point.h"
 #include "SimplexQuadratureCompression.h"
 
-namespace simpex
+namespace dolfin
 {
+
+// Forward declaration to avoid circular includes.
+class Cell;
 
 /// Quadrature rules for simplices.
 class SimplexQuadrature
@@ -62,6 +65,10 @@ public:
   compute_quadrature_rule_tetrahedron(const std::vector<Point>& coordinates,
                                       std::size_t gdim) const;
 
+  /// Compute quadrature rule for a dolfin Cell.
+  std::pair<std::vector<double>, std::vector<double>>
+  compute_quadrature_rule(const Cell& cell) const;
+
   /// Compress a quadrature rule.  Delegates to compress_quadrature_rule()
   /// in SimplexQuadratureCompression.h.
   ///
@@ -92,30 +99,5 @@ private:
 
 };
 
-} // namespace simpex
-
-// ============================================================================
-// dolfin::SimplexQuadrature
-//
-// Extends simpex::SimplexQuadrature with a convenience overload that accepts
-// a dolfin::Cell directly (used in MultiMesh.cpp).
-// ============================================================================
-
-namespace dolfin
-{
-  // Forward declaration to avoid circular includes.
-  class Cell;
-
-  /// SimplexQuadrature with dolfin Cell support.
-  class SimplexQuadrature : public simpex::SimplexQuadrature
-  {
-  public:
-    using simpex::SimplexQuadrature::SimplexQuadrature;
-    using simpex::SimplexQuadrature::compute_quadrature_rule;
-
-    /// Compute quadrature rule for a dolfin Cell.
-    std::pair<std::vector<double>, std::vector<double>>
-    compute_quadrature_rule(const Cell& cell) const;
-  };
-}
+} // namespace dolfin
 

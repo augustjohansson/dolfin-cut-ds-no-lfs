@@ -2,7 +2,7 @@
 #include <cstddef>
 #include <vector>
 
-namespace simpex::tables {
+namespace dolfin::tables {
 
   struct RuleRef
   {
@@ -21,4 +21,4 @@ namespace simpex::tables {
   // Supported orders: 1..6.
   RuleRef tetra_rule_keast(std::size_t order);
 
-} // namespace simpex::tables
+} // namespace dolfin::tables

@@ -203,12 +203,4 @@ namespace dolfin
 
 } // namespace dolfin
 
-// Provide simpex::Point as an alias for dolfin::Point so that the new
-// optimised geometry routines (which use namespace simpex) work without
-// any type-conversion overhead.
-namespace simpex
-{
-  using Point = dolfin::Point;
-}
-
 #endif

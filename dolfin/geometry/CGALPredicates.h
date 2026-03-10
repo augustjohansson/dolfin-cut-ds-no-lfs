@@ -17,7 +17,7 @@
 
 #include "Point.h"
 
-namespace simpex {
+namespace dolfin {
 
 // ---------------------------------------------------------------------------
 // Internal helpers: convert simpex::Point to CGAL EPICK types
@@ -167,7 +167,7 @@ inline bool cgal_collides_tetrahedron_triangle_3d(
   return CGAL::do_intersect(_cgal::tet(p0, p1, p2, p3), _cgal::tri(q0, q1, q2));
 }
 
-} // namespace simpex
+} // namespace dolfin
 
 #endif // SIMPEX_WITH_CGAL
 #endif // SIMPEX_CGAL_PREDICATES_H
