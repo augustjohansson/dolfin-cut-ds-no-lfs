@@ -197,7 +197,7 @@ if (DOLFIN_ENABLE_GEOMETRY_DEBUGGING AND GMP_FOUND AND MPFR_FOUND AND CGAL_FOUND
   target_link_libraries(dolfin PRIVATE ${MPFR_LIBRARIES})
 endif()
 
-if (CMAKE_USE_CGAL AND GMP_FOUND AND MPFR_FOUND AND CGAL_FOUND)
+if (DOLFIN_USE_CGAL AND GMP_FOUND AND MPFR_FOUND AND CGAL_FOUND)
   message(STATUS "Appending link flags for CGAL geometry routines")
   target_compile_definitions(dolfin PUBLIC "DOLFIN_USE_CGAL")
   target_compile_definitions(dolfin PUBLIC "SIMPEX_WITH_CGAL")
