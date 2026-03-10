@@ -197,6 +197,17 @@ if (DOLFIN_ENABLE_GEOMETRY_DEBUGGING AND GMP_FOUND AND MPFR_FOUND AND CGAL_FOUND
   target_link_libraries(dolfin PRIVATE ${MPFR_LIBRARIES})
 endif()
 
+if (DOLFIN_USE_CGAL AND GMP_FOUND AND MPFR_FOUND AND CGAL_FOUND)
+  message(STATUS "Appending link flags for CGAL geometry routines")
+  target_compile_definitions(dolfin PUBLIC "DOLFIN_USE_CGAL")
+  target_compile_definitions(dolfin PUBLIC "SIMPEX_WITH_CGAL")
+  target_include_directories(dolfin PRIVATE ${CGAL_INCLUDE_DIRS})
+  target_include_directories(dolfin PRIVATE ${GMP_INCLUDE_DIRS})
+  target_include_directories(dolfin PRIVATE ${MPFR_INCLUDE_DIRS})
+  target_link_libraries(dolfin PRIVATE ${GMP_LIBRARIES})
+  target_link_libraries(dolfin PRIVATE ${MPFR_LIBRARIES})
+endif()
+
 #------------------------------------------------------------------------------
 # Set compiler flags, include directories and library dependencies
 

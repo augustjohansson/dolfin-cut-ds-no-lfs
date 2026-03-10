@@ -29,10 +29,22 @@
 
 #ifndef SIMPEX_ENABLE_GEOMETRY_DEBUGGING
 
+#ifdef DOLFIN_USE_CGAL
+
+// When DOLFIN_USE_CGAL is enabled, use CGAL geometry routines directly
+// for collision predicates and intersection construction instead of the built-in implementations.
+#include "CGALPredicates.h"
+#define CHECK_CGAL(RESULT_SIMPEX, RESULT_CGAL) RESULT_CGAL
+#define CGAL_INTERSECTION_CHECK(RESULT_SIMPEX, RESULT_CGAL) RESULT_CGAL
+
+#else
+
 // Comparison macro just bypasses CGAL and test when not enabled
 #define CHECK_CGAL(RESULT_SIMPEX, RESULT_CGAL) RESULT_SIMPEX
 
 #define CGAL_INTERSECTION_CHECK(RESULT_SIMPEX, RESULT_CGAL) RESULT_SIMPEX
+
+#endif // DOLFIN_USE_CGAL
 
 #else
 
