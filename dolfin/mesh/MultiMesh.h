@@ -30,6 +30,7 @@
 
 #include <dolfin/common/Variable.h>
 #include <dolfin/geometry/Point.h>
+#include <dolfin/geometry/SimplexQuadrature.h>
 
 namespace dolfin
 {
@@ -39,7 +40,6 @@ namespace dolfin
   class Mesh;
   class BoundaryMesh;
   class BoundingBoxTree;
-  class SimplexQuadrature;
 
   /// This class represents a collection of meshes with arbitrary
   /// overlaps. A multimesh may be created from a set of standard

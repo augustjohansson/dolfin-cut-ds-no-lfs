@@ -17,12 +17,12 @@ if (NOT DOLFIN_VERSION_RELEASE)
 endif()
 
 #------------------------------------------------------------------------------
-# Require and use C++11
+# Require and use C++17 (needed by the optimised geometry library)
 
-# Use C++11
-set(CMAKE_CXX_STANDARD 11)
+# Use C++17
+set(CMAKE_CXX_STANDARD 17)
 
-# Require C++11
+# Require C++17
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Do not enable compler-specific extensions
@@ -31,11 +31,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 #------------------------------------------------------------------------------
 # Check compiler version
 
-# Check for GCC version - earlier versions have insuffcient C++11
+# Check for GCC version - earlier versions have insuffcient C++17
 # support, or bugs.
 if (CMAKE_COMPILER_IS_GNUCXX)
-  if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.8.3)
-    message(FATAL_ERROR "GCC version must be at least 4.8.3 (for sufficient C++11  support and to avoid some compiler bugs). You have version ${CMAKE_CXX_COMPILER_VERSION}")
+  if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 7.0)
+    message(FATAL_ERROR "GCC version must be at least 7.0 (for sufficient C++17  support and to avoid some compiler bugs). You have version ${CMAKE_CXX_COMPILER_VERSION}")
   endif()
 endif()
 

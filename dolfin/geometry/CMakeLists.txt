@@ -4,18 +4,22 @@ set(HEADERS
   BoundingBoxTree3D.h
   BoundingBoxTree.h
   CGALExactArithmetic.h
+  CGALPredicates.h
   CollisionPredicates.h
   ConvexTriangulation.h
   dolfin_geometry.h
   GenericBoundingBoxTree.h
   GeometryDebugging.h
   GeometryPredicates.h
+  GeometryTools.h
   intersect.h
   IntersectionConstruction.h
   MeshPointIntersection.h
   Point.h
   predicates.h
   SimplexQuadrature.h
+  SimplexQuadratureCompression.h
+  SimplexQuadratureTables.h
   PARENT_SCOPE)
 
 set(SOURCES
@@ -31,4 +35,6 @@ set(SOURCES
   Point.cpp
   predicates.cpp
   SimplexQuadrature.cpp
+  SimplexQuadratureCompression.cpp
+  SimplexQuadratureTables.cpp
   PARENT_SCOPE)
