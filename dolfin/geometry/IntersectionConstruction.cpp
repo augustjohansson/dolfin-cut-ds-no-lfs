@@ -30,6 +30,7 @@
 #include "IntersectionConstruction.h"
 #include "predicates.h"
 #include "CGALExactArithmetic.h"
+#include <dolfin/log/log.h>
 
 using namespace dolfin;
 
