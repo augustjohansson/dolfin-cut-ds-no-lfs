@@ -32,9 +32,7 @@
 #include <ostream>
 #include <sstream>
 
-namespace simpex
-{
-  // Optional: aggressive inlining hint for hot builds
+// Optional: aggressive inlining hint for hot builds
 #if defined(_MSC_VER)
 #define SIMPEX_FORCEINLINE __forceinline
 #elif defined(__GNUC__) || defined(__clang__)
@@ -43,6 +41,12 @@ namespace simpex
 #define SIMPEX_FORCEINLINE inline
 #endif
 
+namespace dolfin
+{
+
+  /// A Point represents a point in R^3 with coordinates x, y, z, or
+  /// alternatively, a vector in R^3, supporting standard operations.
+  /// This is the optimised implementation from the simpex geometry library.
   class Point
   {
   public:
@@ -50,7 +54,7 @@ namespace simpex
     constexpr explicit Point(double x = 0.0, double y = 0.0, double z = 0.0) noexcept
       : _x{{x, y, z}} {}
 
-    // Copy the first dim entries (dim expected <= 3). Keep asserts in debug.
+    // Copy the first dim entries (dim expected <= 3).
     explicit Point(std::size_t dim, const double* x) noexcept : _x{{0.0, 0.0, 0.0}}
     {
       assert(dim <= 3);
@@ -116,6 +120,14 @@ namespace simpex
     SIMPEX_FORCEINLINE constexpr bool operator!=(const Point& p) const noexcept
     { return !(*this == p); }
 
+    // Lexicographic less-than for use in ordered containers.
+    SIMPEX_FORCEINLINE constexpr bool operator<(const Point& a) const noexcept
+    {
+      if (_x[0] != a._x[0]) return _x[0] < a._x[0];
+      if (_x[1] != a._x[1]) return _x[1] < a._x[1];
+      return _x[2] < a._x[2];
+    }
+
     SIMPEX_FORCEINLINE constexpr double squared_distance(const Point& p) const noexcept
     {
       const double dx = _x[0] - p._x[0];
@@ -136,10 +148,10 @@ namespace simpex
     SIMPEX_FORCEINLINE constexpr Point cross(const Point& p) const noexcept
     {
       return Point(
-		   _x[1]*p._x[2] - _x[2]*p._x[1],
-		   _x[2]*p._x[0] - _x[0]*p._x[2],
-		   _x[0]*p._x[1] - _x[1]*p._x[0]
-		   );
+        _x[1]*p._x[2] - _x[2]*p._x[1],
+        _x[2]*p._x[0] - _x[0]*p._x[2],
+        _x[0]*p._x[1] - _x[1]*p._x[0]
+      );
     }
 
     SIMPEX_FORCEINLINE constexpr double dot(const Point& p) const noexcept
@@ -154,17 +166,17 @@ namespace simpex
       const double one_c = 1.0 - c;
 
       const double ax = a[0], ay = a[1], az = a[2];
-      const double x  = _x[0], y  = _x[1], z  = _x[2];
+      const double xv = _x[0], yv = _x[1], zv = _x[2];
 
-      const double dot = ax*x + ay*y + az*z;
+      const double d = ax*xv + ay*yv + az*zv;
 
-      const double cx = ay*z - az*y;
-      const double cy = az*x - ax*z;
-      const double cz = ax*y - ay*x;
+      const double cx = ay*zv - az*yv;
+      const double cy = az*xv - ax*zv;
+      const double cz = ax*yv - ay*xv;
 
-      return Point(x*c + cx*s + ax*dot*one_c,
-		   y*c + cy*s + ay*dot*one_c,
-		   z*c + cz*s + az*dot*one_c);
+      return Point(xv*c + cx*s + ax*d*one_c,
+                   yv*c + cy*s + ay*d*one_c,
+                   zv*c + cz*s + az*d*one_c);
     }
 
     std::string str() const
@@ -177,31 +189,26 @@ namespace simpex
     // Backwards-compatibility overload (verbose parameter is ignored).
     std::string str(bool /*verbose*/) const { return str(); }
 
-    // Lexicographic less-than for use in ordered containers.
-    SIMPEX_FORCEINLINE constexpr bool operator<(const Point& a) const noexcept
-    {
-      if (_x[0] != a._x[0]) return _x[0] < a._x[0];
-      if (_x[1] != a._x[1]) return _x[1] < a._x[1];
-      return _x[2] < a._x[2];
-    }
-
   private:
     std::array<double, 3> _x;
   };
 
+  /// Multiplication with scalar
   SIMPEX_FORCEINLINE constexpr Point operator*(double a, const Point& p) noexcept
   { return p * a; }
 
+  /// Output of Point to stream
   inline std::ostream& operator<<(std::ostream& stream, const Point& point)
-  { return stream << point.x() << ' ' << point.y() << ' ' << point.z(); }
+  { stream << point.str(false); return stream; }
 
-} // namespace simpex
+} // namespace dolfin
 
-// Backwards-compatibility alias so that existing dolfin code using
-// dolfin::Point continues to compile without modification.
-namespace dolfin
+// Provide simpex::Point as an alias for dolfin::Point so that the new
+// optimised geometry routines (which use namespace simpex) work without
+// any type-conversion overhead.
+namespace simpex
 {
-  using Point = simpex::Point;
+  using Point = dolfin::Point;
 }
 
 #endif

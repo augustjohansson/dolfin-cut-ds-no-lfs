@@ -22,12 +22,11 @@
 #define __COLLISION_PREDICATES_H
 
 #include <cstddef>
+#include "Point.h"
 
 namespace simpex
 {
 
-  // Forward declarations
-  class Point;
   /// This class implements algorithms for detecting pairwise
   /// collisions between mesh entities of varying dimensions.
 

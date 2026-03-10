@@ -22,6 +22,11 @@
 #ifndef __CGAL_EXACT_ARITHMETIC_H
 #define __CGAL_EXACT_ARITHMETIC_H
 
+// Support both the legacy DOLFIN flag and the new SIMPEX flag.
+#if defined(DOLFIN_ENABLE_GEOMETRY_DEBUGGING) && !defined(SIMPEX_ENABLE_GEOMETRY_DEBUGGING)
+#define SIMPEX_ENABLE_GEOMETRY_DEBUGGING
+#endif
+
 #ifndef SIMPEX_ENABLE_GEOMETRY_DEBUGGING
 
 // Comparison macro just bypasses CGAL and test when not enabled
