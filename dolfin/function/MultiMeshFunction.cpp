@@ -277,7 +277,7 @@ void MultiMeshFunction::eval(Array<double>& values,
     std::size_t part = multimesh.num_parts() - 1 - j;
 
     // Stop if we reached the bottom part (layer) or found layer containing point
-    if (part == 0 or multimesh.part(part)->bounding_box_tree()->collides_entity(Point(x)))
+    if (part == 0 or multimesh.part(part)->bounding_box_tree()->collides_entity(Point(x.size(), x.data())))
     {
       this->part(part)->eval(values, x);
       break;
