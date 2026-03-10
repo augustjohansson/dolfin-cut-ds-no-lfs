@@ -3,24 +3,24 @@
 // Provides well-optimized CGAL-based geometry predicates that mirror the
 // Shewchuk API in CollisionPredicates.h / predicates.h.
 //
-// Available only when compiled with -DSIMPEX_WITH_CGAL.
+// Available only when compiled with -DDOLFIN_WITH_CGAL.
 // Uses CGAL::Exact_predicates_inexact_constructions_kernel (EPICK) throughout.
 // All collision tests use CGAL::do_intersect -- no general Polyhedron routines.
 
-#ifndef SIMPEX_CGAL_PREDICATES_H
-#define SIMPEX_CGAL_PREDICATES_H
+#ifndef DOLFIN_CGAL_PREDICATES_H
+#define DOLFIN_CGAL_PREDICATES_H
 
-#ifdef SIMPEX_WITH_CGAL
+#ifdef DOLFIN_WITH_CGAL
 
 #include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #include <CGAL/intersections.h>
 
 #include "Point.h"
 
-namespace simpex {
+namespace dolfin {
 
 // ---------------------------------------------------------------------------
-// Internal helpers: convert simpex::Point to CGAL EPICK types
+// Internal helpers: convert dolfin::Point to CGAL EPICK types
 // ---------------------------------------------------------------------------
 namespace _cgal {
   using K    = CGAL::Exact_predicates_inexact_constructions_kernel;
@@ -167,7 +167,7 @@ inline bool cgal_collides_tetrahedron_triangle_3d(
   return CGAL::do_intersect(_cgal::tet(p0, p1, p2, p3), _cgal::tri(q0, q1, q2));
 }
 
-} // namespace simpex
+} // namespace dolfin
 
-#endif // SIMPEX_WITH_CGAL
-#endif // SIMPEX_CGAL_PREDICATES_H
+#endif // DOLFIN_WITH_CGAL
+#endif // DOLFIN_CGAL_PREDICATES_H

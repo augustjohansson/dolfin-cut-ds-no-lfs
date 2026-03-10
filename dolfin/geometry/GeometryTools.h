@@ -21,7 +21,7 @@
 #include "Point.h"
 #include "predicates.h"
 
-namespace simpex
+namespace dolfin
 {
 
 /// Utility functions for computational geometry.
@@ -49,8 +49,7 @@ public:
 
 };
 
-} // namespace simpex
+} // namespace dolfin
 
-namespace dolfin { using GeometryTools = simpex::GeometryTools; }
 
 #endif

@@ -19,7 +19,7 @@
 ///   Journal of Computational Physics 493 (2023).
 ///   https://www.sciencedirect.com/science/article/abs/pii/S016892742300185X
 
-namespace simpex::compression
+namespace dolfin::compression
 {
 
 /// Compression algorithm to use.
@@ -67,4 +67,4 @@ compress_irls(std::pair<std::vector<double>, std::vector<double>>& qr,
               std::size_t gdim,
               std::size_t quadrature_order);
 
-} // namespace simpex::compression
+} // namespace dolfin::compression

@@ -23,7 +23,7 @@
 #include "SimplexQuadratureTables.h"
 #include "predicates.h"
 
-using namespace simpex;
+using namespace dolfin;
 
 // ---------------------------------------------------------------------------
 // File-scope helpers
@@ -263,11 +263,11 @@ dolfin::SimplexQuadrature::compute_quadrature_rule(const dolfin::Cell& cell) con
   std::vector<double> x;
   cell.get_coordinate_dofs(x);
 
-  std::vector<simpex::Point> s(tdim + 1);
+  std::vector<dolfin::Point> s(tdim + 1);
   for (std::size_t t = 0; t < tdim + 1; ++t)
     for (std::size_t d = 0; d < gdim; ++d)
       s[t][d] = x[gdim*t + d];
 
-  return simpex::SimplexQuadrature::compute_quadrature_rule(s, gdim);
+  return SimplexQuadrature::compute_quadrature_rule(s, gdim);
 }
 //-----------------------------------------------------------------------------

@@ -24,6 +24,7 @@
 #include <cmath>
 #include <algorithm>
 #include <dolfin/log/log.h>
+#include <dolfin/common/constants.h>
 #include <dolfin/common/NoDeleter.h>
 #include <dolfin/geometry/BoundingBoxTree.h>
 #include <dolfin/geometry/SimplexQuadrature.h>
