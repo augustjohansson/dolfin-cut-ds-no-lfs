@@ -29,9 +29,6 @@ RUN python3 -m pip install --no-cache-dir -U "numpy<2" pytest pybind11 mpi4py pk
 
 WORKDIR /opt/src
 
-COPY intersection_dispatch.cpp /tmp/intersection_dispatch.cpp
-COPY patch_dolfin_tests.py /tmp/patch_dolfin_tests.py
-
 RUN git clone --depth 1 --single-branch --branch main \
     https://github.com/augustjohansson/dolfin-cut-ds-no-lfs.git dolfin
 RUN git clone --depth 1 --single-branch --branch august/mergebb \
@@ -59,8 +56,6 @@ RUN cd /opt/src/ffc-cut-ds/libs/ffc-factory && \
     cp ffc_factory*.so /usr/local/lib/python3.10/dist-packages/
 
 RUN cd /opt/src/dolfin && git pull && \
-    cat /tmp/intersection_dispatch.cpp >> dolfin/geometry/IntersectionConstruction.cpp && \
-    python3 /tmp/patch_dolfin_tests.py && \
     mkdir -p /opt/build/dolfin && cd /opt/build/dolfin && \
     cmake -G Ninja /opt/src/dolfin \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
