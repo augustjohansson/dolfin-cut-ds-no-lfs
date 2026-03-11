@@ -22,7 +22,7 @@
 #ifndef __CGAL_EXACT_ARITHMETIC_H
 #define __CGAL_EXACT_ARITHMETIC_H
 
-// Support both the legacy DOLFIN flag and the new SIMPEX flag.
+// Support the DOLFIN geometry debugging flag.
 #if defined(DOLFIN_ENABLE_GEOMETRY_DEBUGGING) && !defined(DOLFIN_ENABLE_GEOMETRY_DEBUGGING_INTERNAL)
 #define DOLFIN_ENABLE_GEOMETRY_DEBUGGING_INTERNAL
 #endif
@@ -34,15 +34,15 @@
 // When DOLFIN_USE_CGAL is enabled, use CGAL geometry routines directly
 // for collision predicates and intersection construction instead of the built-in implementations.
 #include "CGALPredicates.h"
-#define CHECK_CGAL(RESULT_SIMPEX, RESULT_CGAL) RESULT_CGAL
-#define CGAL_INTERSECTION_CHECK(RESULT_SIMPEX, RESULT_CGAL) RESULT_CGAL
+#define CHECK_CGAL(RESULT_DOLFIN, RESULT_CGAL) RESULT_CGAL
+#define CGAL_INTERSECTION_CHECK(RESULT_DOLFIN, RESULT_CGAL) RESULT_CGAL
 
 #else
 
 // Comparison macro just bypasses CGAL and test when not enabled
-#define CHECK_CGAL(RESULT_SIMPEX, RESULT_CGAL) RESULT_SIMPEX
+#define CHECK_CGAL(RESULT_DOLFIN, RESULT_CGAL) RESULT_DOLFIN
 
-#define CGAL_INTERSECTION_CHECK(RESULT_SIMPEX, RESULT_CGAL) RESULT_SIMPEX
+#define CGAL_INTERSECTION_CHECK(RESULT_DOLFIN, RESULT_CGAL) RESULT_DOLFIN
 
 #endif // DOLFIN_USE_CGAL
 
@@ -55,26 +55,26 @@
 #include <cstdio>
 #include <cassert>
 
-// Check that results from SIMPEX and CGAL match
+// Check that results from DOLFIN and CGAL match
 namespace dolfin
 {
   //---------------------------------------------------------------------------
-  // Functions to compare results between SIMPEX and CGAL
+  // Functions to compare results between DOLFIN and CGAL
   //---------------------------------------------------------------------------
   inline bool
-  check_cgal(bool result_simpex,
+  check_cgal(bool result_dolfin,
 	     bool result_cgal,
 	     const std::string& function)
   {
-    if (result_simpex != result_cgal)
+    if (result_dolfin != result_cgal)
     {
       // Print mismatch details before asserting
-      std::printf("CGAL mismatch in %s: SIMPEX=%d CGAL=%d\n",
-                  function.c_str(), (int)result_simpex, (int)result_cgal);
-      assert(false); // SIMPEX and CGAL disagree on predicate result
+      std::printf("CGAL mismatch in %s: DOLFIN=%d CGAL=%d\n",
+                  function.c_str(), (int)result_dolfin, (int)result_cgal);
+      assert(false); // DOLFIN and CGAL disagree on predicate result
     }
 
-    return result_simpex;
+    return result_dolfin;
   }
   //-----------------------------------------------------------------------------
   inline
@@ -85,9 +85,9 @@ namespace dolfin
   {
     if (dolfin_result.size() != cgal_result.size())
     {
-      std::printf("Intersection size mismatch in %s: simpex=%zu cgal=%zu\n",
+      std::printf("Intersection size mismatch in %s: dolfin=%zu cgal=%zu\n",
                   function.c_str(), dolfin_result.size(), cgal_result.size());
-      assert(false); // intersection point-set size differs between SIMPEX and CGAL
+      assert(false); // intersection point-set size differs between DOLFIN and CGAL
     }
 
     for (const Point& p1 : dolfin_result)
@@ -104,9 +104,9 @@ namespace dolfin
 
       if (!found)
       {
-        std::printf("Point (%f,%f,%f) from SIMPEX not found in CGAL result (%s)\n",
+        std::printf("Point (%f,%f,%f) from DOLFIN not found in CGAL result (%s)\n",
                     p1[0], p1[1], p1[2], function.c_str());
-        assert(false); // intersection point present in SIMPEX but not in CGAL result
+        assert(false); // intersection point present in DOLFIN but not in CGAL result
       }
     }
     return dolfin_result;
@@ -114,11 +114,11 @@ namespace dolfin
 } // end namespace dolfin
 //-----------------------------------------------------------------------------
 // Comparison macro that calls comparison function
-#define CHECK_CGAL(RESULT_SIMPEX, RESULT_CGAL) \
-  check_cgal(RESULT_SIMPEX, RESULT_CGAL, __FUNCTION__)
+#define CHECK_CGAL(RESULT_DOLFIN, RESULT_CGAL) \
+  check_cgal(RESULT_DOLFIN, RESULT_CGAL, __FUNCTION__)
 
-#define CGAL_INTERSECTION_CHECK(RESULT_SIMPEX, RESULT_CGAL) \
-  cgal_intersection_check(RESULT_SIMPEX, RESULT_CGAL, __FUNCTION__)
+#define CGAL_INTERSECTION_CHECK(RESULT_DOLFIN, RESULT_CGAL) \
+  cgal_intersection_check(RESULT_DOLFIN, RESULT_CGAL, __FUNCTION__)
 
 // CGAL includes
 #include <CGAL/Cartesian.h>
@@ -390,7 +390,7 @@ namespace
 namespace dolfin
 {
   //---------------------------------------------------------------------------
-  // Reference implementations of SIMPEX collision detection predicates
+  // Reference implementations of DOLFIN collision detection predicates
   // using CGAL exact arithmetic
   // ---------------------------------------------------------------------------
   inline bool cgal_collides_segment_point_2d(const Point& q0,
@@ -553,7 +553,7 @@ namespace dolfin
                               convert_to_cgal_3d(q0, q1, q2, q3));
   }
   //----------------------------------------------------------------------------
-  // Reference implementations of SIMPEX intersection triangulation
+  // Reference implementations of DOLFIN intersection triangulation
   // functions using CGAL with exact arithmetic
   // ---------------------------------------------------------------------------
   inline
@@ -949,7 +949,7 @@ namespace dolfin
     return res;
   }
   //----------------------------------------------------------------------------
-  // Reference implementations of SIMPEX is_degenerate
+  // Reference implementations of DOLFIN is_degenerate
   //-----------------------------------------------------------------------------
   inline bool cgal_is_degenerate_2d(const std::vector<Point>& s)
   {

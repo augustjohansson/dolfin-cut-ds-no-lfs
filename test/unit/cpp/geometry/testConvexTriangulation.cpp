@@ -22,7 +22,7 @@
 #include "../geometry/predicates.h"
 #include "catch/catch.hpp"
 
-using namespace simpex;
+using namespace dolfin;
 
 namespace
 {
@@ -123,10 +123,10 @@ namespace
     return false;
   }
   //-----------------------------------------------------------------------------
-  double triangulation_volume(const std::vector<std::vector<simpex::Point>>& triangulation)
+  double triangulation_volume(const std::vector<std::vector<dolfin::Point>>& triangulation)
   {
     double vol = 0;
-    for (const std::vector<simpex::Point>& tri : triangulation)
+    for (const std::vector<dolfin::Point>& tri : triangulation)
     {
       const Point& x0 = tri[0];
       const Point& x1 = tri[1];
