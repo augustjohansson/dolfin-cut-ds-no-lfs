@@ -108,8 +108,10 @@ if [ -x "$UNITTEST_BIN" ]; then
         "$UNITTEST_BIN" "Compression*"
 
     # ---- CGAL comparison (testCGALComparison.cpp) ----
-    # Tests are tagged [cgal] and guarded by #ifdef DOLFIN_WITH_CGAL internally.
-    # When CGAL is disabled no tests carry the [cgal] tag so Catch exits 0;
+    # Tests are tagged [cgal] and guarded by #ifdef DOLFIN_WITH_CGAL in the
+    # source (DOLFIN_WITH_CGAL is the compile-time define set when the CMake
+    # option DOLFIN_USE_CGAL=ON is used at build time).
+    # When CGAL is disabled no tests are compiled in, so Catch exits 0;
     # the run_check therefore reports PASS in both cases.
     run_check "dolfin C++: CGAL comparison tests (skipped when CGAL is off)" \
         "$UNITTEST_BIN" "[cgal]"
