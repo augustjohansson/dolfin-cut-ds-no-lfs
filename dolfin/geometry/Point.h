@@ -34,11 +34,11 @@
 
 // Optional: aggressive inlining hint for hot builds
 #if defined(_MSC_VER)
-#define SIMPEX_FORCEINLINE __forceinline
+#define DOLFIN_FORCEINLINE __forceinline
 #elif defined(__GNUC__) || defined(__clang__)
-#define SIMPEX_FORCEINLINE inline __attribute__((always_inline))
+#define DOLFIN_FORCEINLINE inline __attribute__((always_inline))
 #else
-#define SIMPEX_FORCEINLINE inline
+#define DOLFIN_FORCEINLINE inline
 #endif
 
 namespace dolfin
@@ -46,7 +46,7 @@ namespace dolfin
 
   /// A Point represents a point in R^3 with coordinates x, y, z, or
   /// alternatively, a vector in R^3, supporting standard operations.
-  /// This is the optimised implementation from the simpex geometry library.
+  /// This is the optimised implementation from the geometry library.
   class Point
   {
   public:
@@ -69,66 +69,66 @@ namespace dolfin
     ~Point() = default;
 
     // Element access
-    SIMPEX_FORCEINLINE double& operator[](std::size_t i) noexcept
+    DOLFIN_FORCEINLINE double& operator[](std::size_t i) noexcept
     { assert(i < 3); return _x[i]; }
 
-    SIMPEX_FORCEINLINE const double& operator[](std::size_t i) const noexcept
+    DOLFIN_FORCEINLINE const double& operator[](std::size_t i) const noexcept
     { assert(i < 3); return _x[i]; }
 
     // Named coordinates
-    SIMPEX_FORCEINLINE constexpr double x() const noexcept { return _x[0]; }
-    SIMPEX_FORCEINLINE constexpr double y() const noexcept { return _x[1]; }
-    SIMPEX_FORCEINLINE constexpr double z() const noexcept { return _x[2]; }
+    DOLFIN_FORCEINLINE constexpr double x() const noexcept { return _x[0]; }
+    DOLFIN_FORCEINLINE constexpr double y() const noexcept { return _x[1]; }
+    DOLFIN_FORCEINLINE constexpr double z() const noexcept { return _x[2]; }
 
     // Raw pointer access
-    SIMPEX_FORCEINLINE double* coordinates() noexcept { return _x.data(); }
-    SIMPEX_FORCEINLINE const double* coordinates() const noexcept { return _x.data(); }
+    DOLFIN_FORCEINLINE double* coordinates() noexcept { return _x.data(); }
+    DOLFIN_FORCEINLINE const double* coordinates() const noexcept { return _x.data(); }
 
-    SIMPEX_FORCEINLINE constexpr std::array<double, 3> array() const noexcept { return _x; }
+    DOLFIN_FORCEINLINE constexpr std::array<double, 3> array() const noexcept { return _x; }
 
     // Arithmetic
-    SIMPEX_FORCEINLINE constexpr Point operator+(const Point& p) const noexcept
+    DOLFIN_FORCEINLINE constexpr Point operator+(const Point& p) const noexcept
     { return Point(_x[0] + p._x[0], _x[1] + p._x[1], _x[2] + p._x[2]); }
 
-    SIMPEX_FORCEINLINE constexpr Point operator-(const Point& p) const noexcept
+    DOLFIN_FORCEINLINE constexpr Point operator-(const Point& p) const noexcept
     { return Point(_x[0] - p._x[0], _x[1] - p._x[1], _x[2] - p._x[2]); }
 
-    SIMPEX_FORCEINLINE Point& operator+=(const Point& p) noexcept
+    DOLFIN_FORCEINLINE Point& operator+=(const Point& p) noexcept
     { _x[0] += p._x[0]; _x[1] += p._x[1]; _x[2] += p._x[2]; return *this; }
 
-    SIMPEX_FORCEINLINE Point& operator-=(const Point& p) noexcept
+    DOLFIN_FORCEINLINE Point& operator-=(const Point& p) noexcept
     { _x[0] -= p._x[0]; _x[1] -= p._x[1]; _x[2] -= p._x[2]; return *this; }
 
-    SIMPEX_FORCEINLINE constexpr Point operator-() const noexcept
+    DOLFIN_FORCEINLINE constexpr Point operator-() const noexcept
     { return Point(-_x[0], -_x[1], -_x[2]); }
 
-    SIMPEX_FORCEINLINE constexpr Point operator*(double a) const noexcept
+    DOLFIN_FORCEINLINE constexpr Point operator*(double a) const noexcept
     { return Point(a*_x[0], a*_x[1], a*_x[2]); }
 
-    SIMPEX_FORCEINLINE Point& operator*=(double a) noexcept
+    DOLFIN_FORCEINLINE Point& operator*=(double a) noexcept
     { _x[0] *= a; _x[1] *= a; _x[2] *= a; return *this; }
 
-    SIMPEX_FORCEINLINE Point operator/(double a) const noexcept
+    DOLFIN_FORCEINLINE Point operator/(double a) const noexcept
     { return Point(_x[0]/a, _x[1]/a, _x[2]/a); }
 
-    SIMPEX_FORCEINLINE Point& operator/=(double a) noexcept
+    DOLFIN_FORCEINLINE Point& operator/=(double a) noexcept
     { _x[0] /= a; _x[1] /= a; _x[2] /= a; return *this; }
 
-    SIMPEX_FORCEINLINE constexpr bool operator==(const Point& p) const noexcept
+    DOLFIN_FORCEINLINE constexpr bool operator==(const Point& p) const noexcept
     { return _x[0] == p._x[0] && _x[1] == p._x[1] && _x[2] == p._x[2]; }
 
-    SIMPEX_FORCEINLINE constexpr bool operator!=(const Point& p) const noexcept
+    DOLFIN_FORCEINLINE constexpr bool operator!=(const Point& p) const noexcept
     { return !(*this == p); }
 
     // Lexicographic less-than for use in ordered containers.
-    SIMPEX_FORCEINLINE constexpr bool operator<(const Point& a) const noexcept
+    DOLFIN_FORCEINLINE constexpr bool operator<(const Point& a) const noexcept
     {
       if (_x[0] != a._x[0]) return _x[0] < a._x[0];
       if (_x[1] != a._x[1]) return _x[1] < a._x[1];
       return _x[2] < a._x[2];
     }
 
-    SIMPEX_FORCEINLINE constexpr double squared_distance(const Point& p) const noexcept
+    DOLFIN_FORCEINLINE constexpr double squared_distance(const Point& p) const noexcept
     {
       const double dx = _x[0] - p._x[0];
       const double dy = _x[1] - p._x[1];
@@ -136,16 +136,16 @@ namespace dolfin
       return dx*dx + dy*dy + dz*dz;
     }
 
-    SIMPEX_FORCEINLINE double distance(const Point& p) const noexcept
+    DOLFIN_FORCEINLINE double distance(const Point& p) const noexcept
     { return std::sqrt(squared_distance(p)); }
 
-    SIMPEX_FORCEINLINE constexpr double squared_norm() const noexcept
+    DOLFIN_FORCEINLINE constexpr double squared_norm() const noexcept
     { return _x[0]*_x[0] + _x[1]*_x[1] + _x[2]*_x[2]; }
 
-    SIMPEX_FORCEINLINE double norm() const noexcept
+    DOLFIN_FORCEINLINE double norm() const noexcept
     { return std::sqrt(squared_norm()); }
 
-    SIMPEX_FORCEINLINE constexpr Point cross(const Point& p) const noexcept
+    DOLFIN_FORCEINLINE constexpr Point cross(const Point& p) const noexcept
     {
       return Point(
         _x[1]*p._x[2] - _x[2]*p._x[1],
@@ -154,7 +154,7 @@ namespace dolfin
       );
     }
 
-    SIMPEX_FORCEINLINE constexpr double dot(const Point& p) const noexcept
+    DOLFIN_FORCEINLINE constexpr double dot(const Point& p) const noexcept
     { return _x[0]*p._x[0] + _x[1]*p._x[1] + _x[2]*p._x[2]; }
 
     Point rotate(const Point& a, double theta) const
@@ -194,7 +194,7 @@ namespace dolfin
   };
 
   /// Multiplication with scalar
-  SIMPEX_FORCEINLINE constexpr Point operator*(double a, const Point& p) noexcept
+  DOLFIN_FORCEINLINE constexpr Point operator*(double a, const Point& p) noexcept
   { return p * a; }
 
   /// Output of Point to stream

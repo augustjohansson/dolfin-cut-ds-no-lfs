@@ -4,7 +4,7 @@
 #include "../geometry/Point.h"
 #include "catch/catch.hpp"
 
-using namespace simpex;
+using namespace dolfin;
 
 // ---------------------------------------------------------------------------
 // Segment-point collisions

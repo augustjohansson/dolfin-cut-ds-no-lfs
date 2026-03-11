@@ -22,7 +22,7 @@
 #include "../geometry/predicates.h"
 #include "catch/catch.hpp"
 
-using namespace simpex;
+using namespace dolfin;
 
 
 //-----------------------------------------------------------------------------
@@ -39,7 +39,7 @@ TEST_CASE("Intersection construction test")
 
     const Point ref_res(0.583333333333333259, 0.25, 0.333333333333333315);
 
-    std::vector<Point> res = simpex::IntersectionConstruction::intersection_triangle_segment_3d(p0, p1, p2,
+    std::vector<Point> res = dolfin::IntersectionConstruction::intersection_triangle_segment_3d(p0, p1, p2,
 												q0, q1);
 
     CHECK( res.size() == 1 );

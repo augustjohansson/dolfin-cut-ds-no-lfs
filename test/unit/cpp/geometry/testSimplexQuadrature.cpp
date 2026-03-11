@@ -6,7 +6,7 @@
 #include "../geometry/Point.h"
 #include "catch/catch.hpp"
 
-using namespace simpex;
+using namespace dolfin;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -292,7 +292,7 @@ TEST_CASE("SimplexQuadrature: mixed magnitudes")
 #include <functional>
 #include "../geometry/SimplexQuadratureCompression.h"
 
-using namespace simpex::compression;
+using namespace dolfin::compression;
 
 // Helper: apply a quadrature rule to integrate a function f(x, y, [z]).
 using Func2D = std::function<double(double, double)>;

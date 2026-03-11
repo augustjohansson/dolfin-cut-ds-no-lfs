@@ -14,7 +14,7 @@
 //
 // All random generators use seed 42 for reproducibility.
 
-#ifdef SIMPEX_WITH_CGAL
+#ifdef DOLFIN_WITH_CGAL
 
 #include <array>
 #include <cmath>
@@ -26,7 +26,7 @@
 #include "../geometry/Point.h"
 #include "catch/catch.hpp"
 
-using namespace simpex;
+using namespace dolfin;
 
 // ---------------------------------------------------------------------------
 // Deterministic RNG helpers (seed 42)
@@ -82,14 +82,14 @@ static std::array<Point,4> rtet()
   }
 }
 
-// Verify simpex == cgal and return the simpex value
-static bool chk(bool simpex_val, bool cgal_val, const char* label)
+// Verify dolfin == cgal and return the dolfin value
+static bool chk(bool dolfin_val, bool cgal_val, const char* label)
 {
-  if (simpex_val != cgal_val) {
+  if (dolfin_val != cgal_val) {
     FAIL("CGAL/Shewchuk mismatch in " << label
-         << ": simpex=" << simpex_val << " cgal=" << cgal_val);
+         << ": dolfin=" << dolfin_val << " cgal=" << cgal_val);
   }
-  return simpex_val;
+  return dolfin_val;
 }
 #define CHK(s,c)   chk((s),(c), #s)
 
@@ -98,7 +98,7 @@ static bool chk(bool simpex_val, bool cgal_val, const char* label)
 // ---------------------------------------------------------------------------
 TEST_CASE("CGAL: segment-point 1D", "[cgal]")
 {
-  // 1D has no CGAL equivalent; verify the simpex implementation with exact checks.
+  // 1D has no CGAL equivalent; verify the dolfin implementation with exact checks.
   // Use 1e-20 perturbations near 0.0 where they are representable as distinct doubles.
   CHECK(CollisionPredicates::collides_segment_point_1d(0.0, 1.0, 0.5));    // clearly interior
   CHECK(CollisionPredicates::collides_segment_point_1d(0.0, 1.0, 0.0));    // left endpoint
@@ -823,4 +823,4 @@ TEST_CASE("CGAL vs Shewchuk: orient3d sign agreement", "[cgal]")
   CHECK(miss == 0);
 }
 
-#endif // SIMPEX_WITH_CGAL
+#endif // DOLFIN_WITH_CGAL

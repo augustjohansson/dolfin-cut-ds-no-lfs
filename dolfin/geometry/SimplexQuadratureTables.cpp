@@ -3038,7 +3038,7 @@ static double ts_mult(std::vector<double>& u, double h, int n)
 #endif
 
 // ---------------------------------------------------------------------------
-// simpex::tables implementations
+// dolfin::tables implementations
 // ---------------------------------------------------------------------------
 
 namespace dolfin::tables {
