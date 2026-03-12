@@ -30,9 +30,9 @@ from dolfin_utils.test import skip_in_parallel
 
 @skip_in_parallel
 def test_multimesh_trivial_3d():
-    """Trivial test case 3D: two overlapping unit tetrahedra."""
-    background = UnitTetrahedronMesh.create()
-    overlapping = UnitTetrahedronMesh.create()
+    """Trivial test case 3D: two overlapping coarse 3D meshes."""
+    background = UnitCubeMesh(1, 1, 1)
+    overlapping = UnitCubeMesh(1, 1, 1)
     overlapping.translate(Point(0.1, 0.1, 0.1))
 
     multimesh = MultiMesh()
@@ -56,26 +56,12 @@ def test_multimesh_trivial_3d_boxmesh():
     refmesh = BoxMesh(Point(0.394383, 0.783099, 0.197551),
                       Point(0.840188, 0.798440, 0.911647),
                       1, 1, 1)
-    refmesh_coords = refmesh.coordinates()
 
-    for cell in cells(refmesh):
-        vertex_indices = cell.entities(0)
-
-        # Build a unit tetrahedron with coordinates from this refmesh cell
-        tetmesh = UnitTetrahedronMesh.create()
-        tet_coords = tetmesh.coordinates()
-
-        for i in range(4):
-            vi = vertex_indices[i]
-            tet_coords[i][0] = refmesh_coords[vi][0]
-            tet_coords[i][1] = refmesh_coords[vi][1]
-            tet_coords[i][2] = refmesh_coords[vi][2]
-
-        try:
-            multimesh = MultiMesh()
-            multimesh.add(background)
-            multimesh.add(tetmesh)
-            multimesh.build()
-        except RuntimeError:
-            # Expected until degenerate-tetrahedron handling is implemented.
-            pass
+    try:
+        multimesh = MultiMesh()
+        multimesh.add(background)
+        multimesh.add(refmesh)
+        multimesh.build()
+    except RuntimeError:
+        # Expected until degenerate-tetrahedron handling is implemented.
+        pass

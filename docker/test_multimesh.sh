@@ -71,6 +71,9 @@ SRC_DIR="/opt/src"
 DOLFIN_BUILD_DIR="/opt/build/dolfin"
 DOLFIN_SRC_DIR="$SRC_DIR/dolfin"
 
+# Make dolfin importable by Python tests
+export PYTHONPATH="$DOLFIN_BUILD_DIR/python:${PYTHONPATH:-}"
+
 section "dolfin Python unit tests  –  multimesh"
 
 DOLFIN_PY_MM_TEST="$DOLFIN_SRC_DIR/python/test/unit/multimesh"

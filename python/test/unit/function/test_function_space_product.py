@@ -81,5 +81,3 @@ def test_python_interface(W, W11, W12, W13):
 def test_function(f):
     for i in range(f.num_sub_spaces()):
         assert isinstance(f.sub(i).function_space(), FunctionSpace)
-    
-    
