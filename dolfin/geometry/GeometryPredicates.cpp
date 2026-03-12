@@ -52,10 +52,16 @@ bool GeometryPredicates::is_degenerate(const std::vector<Point>& simplex,
   }
   else
   {
-    throw std::runtime_error("Input simplex size %d is not consistent with tdim %d");
+    throw std::runtime_error("Input simplex size " +
+                             std::to_string(simplex.size()) +
+                             " is not consistent with tdim " +
+                             std::to_string(tdim));
   }
 
-  throw std::runtime_error("Not implemented for tdim %d, gdim %d");
+  throw std::runtime_error("Not implemented for tdim " +
+                           std::to_string(tdim) +
+                           ", gdim " +
+                           std::to_string(gdim));
 
   return false;
 }
@@ -193,7 +199,8 @@ bool GeometryPredicates::convex_hull_is_degenerate(const std::vector<Point>& poi
     return false;
   }
 
-  throw std::runtime_error("Only fully implemented for gdim == 3, not gdim = %d");
+  throw std::runtime_error("Only fully implemented for gdim == 3, not gdim = " +
+                           std::to_string(gdim));
   return false;
 }
 //-----------------------------------------------------------------------------
