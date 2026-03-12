@@ -16,6 +16,7 @@
 // along with DOLFIN. If not, see <http://www.gnu.org/licenses/>.
 
 #include <memory>
+#include <vector>
 #include <pybind11/pybind11.h>
 #include <pybind11/eigen.h>
 #include <pybind11/numpy.h>
@@ -25,6 +26,7 @@
 
 #include <dolfin/geometry/intersect.h>
 #include <dolfin/geometry/BoundingBoxTree.h>
+#include <dolfin/geometry/ConvexTriangulation.h>
 #include <dolfin/geometry/MeshPointIntersection.h>
 #include <dolfin/geometry/CollisionPredicates.h>
 #include <dolfin/geometry/IntersectionConstruction.h>
@@ -159,6 +161,28 @@ namespace dolfin_wrappers
 		  &dolfin::IntersectionConstruction::intersection_segment_segment_2d)
       .def_static("intersection_triangle_segment_2d",
 		  &dolfin::IntersectionConstruction::intersection_triangle_segment_2d);
+
+    // ConvexTriangulation: wrap triangulate() to return a flat numpy array of
+    // doubles with layout [p0_x0, p0_x1, ..., p0_xgdim, p1_x0, ..., ...] for
+    // each simplex in sequence (num_simplices * (tdim+1) * gdim elements).
+    py::class_<dolfin::ConvexTriangulation>(m, "ConvexTriangulation")
+      .def_static("triangulate",
+        [](const std::vector<dolfin::Point>& points,
+           std::size_t gdim, std::size_t tdim) -> py::array_t<double>
+        {
+          auto triangulation = dolfin::ConvexTriangulation::triangulate(
+            points, gdim, tdim);
+          std::vector<double> flat;
+          flat.reserve(triangulation.size() * (tdim + 1) * gdim);
+          for (const auto& simplex : triangulation)
+            for (const auto& p : simplex)
+              for (std::size_t k = 0; k < gdim; ++k)
+                flat.push_back(p[k]);
+          return py::array_t<double>(flat.size(), flat.data());
+        },
+        "Triangulate the convex hull of the given points into simplices of "
+        "the given gdim/tdim. Returns a flat double array of shape "
+        "(num_simplices * (tdim+1) * gdim,).");
 
     // dolfin/geometry free functions
     m.def("intersect", &dolfin::intersect);

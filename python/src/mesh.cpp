@@ -338,7 +338,10 @@ namespace dolfin_wrappers
       .def("get_cell_data", &dolfin::Cell::get_cell_data)
       .def("get_cell_topology", &dolfin::Cell::get_cell_topology)
       .def("orientation", (std::size_t (dolfin::Cell::*)() const) &dolfin::Cell::orientation)
-      .def("orientation", (std::size_t (dolfin::Cell::*)(const dolfin::Point&) const) &dolfin::Cell::orientation);
+      .def("orientation", (std::size_t (dolfin::Cell::*)(const dolfin::Point&) const) &dolfin::Cell::orientation)
+      .def("intersection", &dolfin::Cell::intersection,
+           "Compute the triangulation of the intersection with another entity. "
+           "Returns a list of dolfin::Point objects forming the simplices.");
 
     // dolfin::MeshEntityIterator
     py::class_<dolfin::MeshEntityIterator, std::shared_ptr<dolfin::MeshEntityIterator>>

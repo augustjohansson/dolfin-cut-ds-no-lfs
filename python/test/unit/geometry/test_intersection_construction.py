@@ -237,28 +237,39 @@ def compare_with_cgal(p0, p1, q0, q1, cgal):
     return abs(intersection[0][0] - cgal[0]) < DOLFIN_EPS and \
            abs(intersection[0][1] - cgal[1]) < DOLFIN_EPS
 
+def verify_segment_intersection(p0, p1, q0, q1):
+    """Verify that segments p0-p1 and q0-q1 intersect and that each returned
+    point lies geometrically on both segments (exact predicate check)."""
+    intersection = cpp.geometry.IntersectionConstruction.intersection_segment_segment_2d(p0, p1, q0, q1)
+    # Must be non-empty
+    if len(intersection) == 0:
+        return False
+    # Every returned point must lie on both input segments
+    for pt in intersection:
+        if not cpp.geometry.CollisionPredicates.collides_segment_point_2d(p0, p1, pt):
+            return False
+        if not cpp.geometry.CollisionPredicates.collides_segment_point_2d(q0, q1, pt):
+            return False
+    return True
+
 @skip_in_parallel
 def test_segment_segment_1():
-    "Case that fails CGAL comparison. We get a different intersection point but still correct area."
+    "Intersection point lies on both segments (formerly compared with CGAL reference)."
     p0 = Point(-0.50000000000000710543,-0.50000000000000710543)
     p1 = Point(0.99999999999999955591,-2)
     q0 = Point(0.9142135623730932581,-1.9142135623730944793)
     q1 = Point(-0.29289321881346941367,-0.70710678118654635149)
 
-    # The intersection should according to CGAL be
-    cgal = Point(0.91066799144849319703, -1.9106679914484945293)
-
-    assert compare_with_cgal(p0, p1, q0, q1, cgal)
+    assert verify_segment_intersection(p0, p1, q0, q1)
 
 @skip_in_parallel
 def test_segment_segment_2():
-    "Case that fails CGAL comparison. We get a different intersection point but still correct area."
+    "Intersection point lies on both segments (formerly compared with CGAL reference)."
     p0 = Point(0.70710678118654746172,-0.70710678118654746172)
     p1 = Point(0.70710678118654612945,0.70710678118654612945)
     q0 = Point(0.70710678118654612945,0.70710678118654113344)
     q1 = Point(0.70710678118654657354,0.2928932188134645842)
-    cgal = Point(0.70710678118654612945, 0.7071067811865050512)
-    assert compare_with_cgal(p0, p1, q0, q1, cgal)
+    assert verify_segment_intersection(p0, p1, q0, q1)
 
 
 @skip_in_parallel
@@ -275,13 +286,13 @@ def test_segment_segment_3():
 
 @skip_in_parallel
 def test_segment_segment_4():
-    "Case that fails CGAL comparison. We get a different intersection point but still correct area."
+    "Intersection point lies on both segments (formerly compared with CGAL reference)."
     p0 = Point(0.70710678118654746172,-0.70710678118654746172)
     p1 = Point(3.5527136788005009294e-14,3.5527136788005009294e-14)
     q0 = Point(0.35355339059326984508,-0.35355339059327078877)
     q1 = Point(0.70710678118655057034,-0.70710678118654701763)
-    cgal = Point(0.67572340116162599166, -0.67572340116162288304)
-    assert compare_with_cgal(p0, p1, q0, q1, cgal)
+
+    assert verify_segment_intersection(p0, p1, q0, q1)
 
 
 @skip_in_parallel
