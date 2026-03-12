@@ -317,3 +317,64 @@ def test_segment_segment_6():
     intersection = cpp.geometry.IntersectionConstruction.intersection_segment_segment_2d(p0, p1, q0, q1)
 
     assert len(intersection) == 0
+
+@skip_in_parallel
+def test_cell_intersection_triangle_triangle():
+    "Test Cell.intersection() between two triangles returns the correct polygon."
+    mesh_0 = UnitSquareMesh(1, 1)
+    mesh_1 = UnitSquareMesh(1, 1)
+    mesh_1.translate(Point(0.5, 0.5))
+
+    # Triangle 0 of mesh_0 covers [0,1]x[0,1] lower-left triangle
+    # Triangle 0 of mesh_1 covers [0.5,1.5]x[0.5,1.5] (shifted by (0.5,0.5))
+    c0 = Cell(mesh_0, 0)
+    c1 = Cell(mesh_1, 0)
+
+    intersection = c0.intersection(c1)
+    # The intersection of two overlapping triangles should be non-empty
+    assert len(intersection) >= 3
+
+@skip_in_parallel
+def test_cell_intersection_non_overlapping():
+    "Test that Cell.intersection() of non-overlapping cells returns empty."
+    mesh_0 = UnitSquareMesh(1, 1)
+    mesh_1 = UnitSquareMesh(1, 1)
+    mesh_1.translate(Point(2.0, 0.0))   # completely to the right
+
+    c0 = Cell(mesh_0, 0)
+    c1 = Cell(mesh_1, 0)
+    intersection = c0.intersection(c1)
+    assert len(intersection) == 0
+
+@skip_in_parallel
+def test_convex_triangulation_2d_area():
+    "Test that ConvexTriangulation.triangulate correctly triangulates 4 points."
+    # A square with unit area, represented as 4 corner points
+    pts = [Point(0.0, 0.0), Point(1.0, 0.0), Point(1.0, 1.0), Point(0.0, 1.0)]
+    triangulation = cpp.geometry.ConvexTriangulation.triangulate(pts, 2, 2)
+    # For a convex polygon with 4 vertices: 4 - 2 = 2 triangles,
+    # each with 3 vertices and 2 coordinates → 2 * 3 * 2 = 12 doubles
+    num_triangles = 2
+    vertices_per_triangle = 3
+    coords_2d = 2
+    assert triangulation.size == num_triangles * vertices_per_triangle * coords_2d
+    # Compute area by building a temporary mesh
+    mesh = triangulation_to_mesh_2d(triangulation)
+    total_area = sum(c.volume() for c in cells(mesh))
+    assert abs(total_area - 1.0) < 1e-14
+
+@skip_in_parallel
+def test_convex_triangulation_3d_volume():
+    "Test that ConvexTriangulation.triangulate correctly triangulates a tetrahedron."
+    # Unit tetrahedron: 4 points, should give 1 tet with volume 1/6
+    pts = [Point(0.0, 0.0, 0.0), Point(1.0, 0.0, 0.0),
+           Point(0.0, 1.0, 0.0), Point(0.0, 0.0, 1.0)]
+    triangulation = cpp.geometry.ConvexTriangulation.triangulate(pts, 3, 3)
+    # 1 tetrahedron with 4 vertices and 3 coordinates → 1 * 4 * 3 = 12 doubles
+    num_tetrahedra = 1
+    vertices_per_tet = 4
+    coords_3d = 3
+    assert triangulation.size == num_tetrahedra * vertices_per_tet * coords_3d
+    mesh = triangulation_to_mesh_3d(triangulation)
+    total_volume = sum(c.volume() for c in cells(mesh))
+    assert abs(total_volume - 1.0/6.0) < 1e-14

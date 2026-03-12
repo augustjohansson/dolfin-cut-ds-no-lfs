@@ -154,6 +154,30 @@ TEST_CASE("CollisionPredicates: segment-segment 3D")
       Point(0.0, 0.0, 0.0), Point(1.0, 0.0, 0.0),
       Point(0.0, 0.0, 1.0), Point(0.0, 1.0, 1.0)));
   }
+  SECTION("shared endpoint")
+  {
+    CHECK(CollisionPredicates::collides_segment_segment_3d(
+      Point(0.0, 0.0, 0.0), Point(1.0, 0.0, 0.0),
+      Point(1.0, 0.0, 0.0), Point(1.0, 1.0, 1.0)));
+  }
+  SECTION("collinear overlapping segments")
+  {
+    CHECK(CollisionPredicates::collides_segment_segment_3d(
+      Point(0.0, 0.0, 0.0), Point(2.0, 2.0, 2.0),
+      Point(1.0, 1.0, 1.0), Point(3.0, 3.0, 3.0)));
+  }
+  SECTION("collinear non-overlapping segments")
+  {
+    CHECK_FALSE(CollisionPredicates::collides_segment_segment_3d(
+      Point(0.0, 0.0, 0.0), Point(1.0, 0.0, 0.0),
+      Point(2.0, 0.0, 0.0), Point(3.0, 0.0, 0.0)));
+  }
+  SECTION("parallel non-touching segments (same z, offset in y)")
+  {
+    CHECK_FALSE(CollisionPredicates::collides_segment_segment_3d(
+      Point(0.0, 0.0, 0.0), Point(1.0, 0.0, 0.0),
+      Point(0.0, 1.0, 0.0), Point(1.0, 1.0, 0.0)));
+  }
 }
 
 // ---------------------------------------------------------------------------

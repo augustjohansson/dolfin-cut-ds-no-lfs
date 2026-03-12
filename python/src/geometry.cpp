@@ -178,7 +178,14 @@ namespace dolfin_wrappers
             for (const auto& p : simplex)
               for (std::size_t k = 0; k < gdim; ++k)
                 flat.push_back(p[k]);
-          return py::array_t<double>(flat.size(), flat.data());
+          // Construct a numpy array that owns its data by moving the vector
+          // into a capsule so that the data outlives the lambda.
+          const std::size_t n = flat.size();
+          auto* ptr = new std::vector<double>(std::move(flat));
+          py::capsule owner(ptr, [](void* p) {
+            delete static_cast<std::vector<double>*>(p);
+          });
+          return py::array_t<double>(n, ptr->data(), owner);
         },
         "Triangulate the convex hull of the given points into simplices of "
         "the given gdim/tdim. Returns a flat double array of shape "
