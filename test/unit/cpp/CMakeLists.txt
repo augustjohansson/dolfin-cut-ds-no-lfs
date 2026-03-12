@@ -58,9 +58,18 @@ target_include_directories(unittests PRIVATE
 
 # When CGAL is enabled the geometry test files indirectly include CGAL
 # headers (via CGALPredicates.h).  Add CGAL include directories so the
-# compiler can find them.
+# compiler can find them.  Also link against GMP and MPFR which are
+# required at link time by CGAL's exact-constructions kernel (EPECK) used
+# in testCGALComparison.cpp; libdolfin links them PRIVATE so they are not
+# transitively available to dependents.
 if (DOLFIN_USE_CGAL AND CGAL_FOUND)
   target_include_directories(unittests PRIVATE ${CGAL_INCLUDE_DIRS})
+  if (GMP_LIBRARIES)
+    target_link_libraries(unittests PRIVATE ${GMP_LIBRARIES})
+  endif()
+  if (MPFR_LIBRARIES)
+    target_link_libraries(unittests PRIVATE ${MPFR_LIBRARIES})
+  endif()
 endif()
 
 # Test target

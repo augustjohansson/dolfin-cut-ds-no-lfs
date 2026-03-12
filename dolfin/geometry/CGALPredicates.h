@@ -13,7 +13,21 @@
 #ifdef DOLFIN_WITH_CGAL
 
 #include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
+#include <CGAL/Exact_predicates_exact_constructions_kernel.h>
 #include <CGAL/intersections.h>
+#include <CGAL/Polyhedron_3.h>
+#include <CGAL/Nef_polyhedron_3.h>
+#include <vector>
+
+#if CGAL_VERSION_NR >= 1060100000
+#include <variant>
+// std::get_if<T>(pointer) returns T* or nullptr.
+namespace { template<typename T, typename V> static const T* _cgalp_get_if(const V* v) { return std::get_if<T>(v); } }
+#else
+#include <boost/variant.hpp>
+// boost::get<T>(pointer) returns T* or nullptr (non-throwing pointer overload).
+namespace { template<typename T, typename V> static const T* _cgalp_get_if(const V* v) { return boost::get<T>(v); } }
+#endif
 
 #include "Point.h"
 
@@ -165,6 +179,92 @@ inline bool cgal_collides_tetrahedron_triangle_3d(
     const Point& q0, const Point& q1, const Point& q2)
 {
   return CGAL::do_intersect(_cgal::tet(p0, p1, p2, p3), _cgal::tri(q0, q1, q2));
+}
+
+// ---------------------------------------------------------------------------
+// Degeneracy predicates
+// ---------------------------------------------------------------------------
+
+/// Check if a 2D segment is degenerate (both endpoints coincide).
+inline bool is_degenerate_2d(const Point& a, const Point& b)
+{ return _cgal::seg2(a, b).is_degenerate(); }
+
+/// Check if a 3D segment is degenerate.
+inline bool is_degenerate_3d(const Point& a, const Point& b)
+{ return _cgal::seg3(a, b).is_degenerate(); }
+
+/// Check if a 2D triangle is degenerate (collinear or duplicate vertices).
+inline bool is_degenerate_2d(const Point& a, const Point& b, const Point& c)
+{ return _cgal::tri2(a, b, c).is_degenerate(); }
+
+/// Check if a 3D triangle is degenerate.
+inline bool is_degenerate_3d(const Point& a, const Point& b, const Point& c)
+{ return _cgal::tri(a, b, c).is_degenerate(); }
+
+/// Check if a 3D tetrahedron is degenerate.
+inline bool is_degenerate_3d(const Point& a, const Point& b,
+                              const Point& c, const Point& d)
+{ return _cgal::tet(a, b, c, d).is_degenerate(); }
+
+// ---------------------------------------------------------------------------
+// Intersection construction functions
+// Uses CGAL::Exact_predicates_exact_constructions_kernel (EPECK) to ensure
+// correct floating-point results when new points are constructed.
+// ---------------------------------------------------------------------------
+
+namespace _cgal_epeck {
+  using EK   = CGAL::Exact_predicates_exact_constructions_kernel;
+  using P3   = EK::Point_3;
+  using S3   = EK::Segment_3;
+  using T3   = EK::Triangle_3;
+  using Tet3 = EK::Tetrahedron_3;
+  using Poly = CGAL::Polyhedron_3<EK>;
+  using Nef  = CGAL::Nef_polyhedron_3<EK>;
+
+  inline P3   to3(const Point& p) { return P3(p.x(), p.y(), p.z()); }
+  inline Point from3(const P3& p)
+  {
+    return Point(CGAL::to_double(p.x()),
+                 CGAL::to_double(p.y()),
+                 CGAL::to_double(p.z()));
+  }
+  inline S3   seg(const Point& a, const Point& b) { return S3(to3(a), to3(b)); }
+  inline T3   tri(const Point& a, const Point& b, const Point& c)
+  { return T3(to3(a), to3(b), to3(c)); }
+}
+
+/// Return the intersection of a 3D triangle and a 3D segment as a point set.
+inline std::vector<Point>
+cgal_intersection_triangle_segment_3d(const Point& p0, const Point& p1,
+                                      const Point& p2,
+                                      const Point& q0, const Point& q1)
+{
+  using namespace _cgal_epeck;
+  const auto ii = CGAL::intersection(tri(p0, p1, p2), seg(q0, q1));
+  if (!ii) return {};
+  if (const P3* p = _cgalp_get_if<P3>(&*ii))
+    return { from3(*p) };
+  if (const S3* s = _cgalp_get_if<S3>(&*ii))
+    return { from3(s->source()), from3(s->target()) };
+  return {};
+}
+
+/// Return the vertices of the intersection of two 3D tetrahedra.
+inline std::vector<Point>
+cgal_intersection_tetrahedron_tetrahedron_3d(
+    const Point& p0, const Point& p1, const Point& p2, const Point& p3,
+    const Point& q0, const Point& q1, const Point& q2, const Point& q3)
+{
+  using namespace _cgal_epeck;
+  Poly tet_a, tet_b;
+  tet_a.make_tetrahedron(to3(p0), to3(p1), to3(p2), to3(p3));
+  tet_b.make_tetrahedron(to3(q0), to3(q1), to3(q2), to3(q3));
+  const Nef nef_a(tet_a), nef_b(tet_b);
+  const Nef nef_i = nef_a * nef_b;
+  std::vector<Point> res;
+  for (auto v = nef_i.vertices_begin(); v != nef_i.vertices_end(); ++v)
+    res.push_back(from3(v->point()));
+  return res;
 }
 
 } // namespace dolfin
