@@ -21,9 +21,11 @@
 
 #if CGAL_VERSION_NR >= 1060100000
 #include <variant>
+// std::get_if<T>(pointer) returns T* or nullptr.
 namespace { template<typename T, typename V> static const T* _cgalp_get_if(const V* v) { return std::get_if<T>(v); } }
 #else
 #include <boost/variant.hpp>
+// boost::get<T>(pointer) returns T* or nullptr (non-throwing pointer overload).
 namespace { template<typename T, typename V> static const T* _cgalp_get_if(const V* v) { return boost::get<T>(v); } }
 #endif
 
