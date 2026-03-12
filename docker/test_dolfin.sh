@@ -127,13 +127,9 @@ if [ -x "$UNITTEST_BIN" ]; then
     run_check "dolfin C++: CGAL comparison tests (skipped when CGAL is off)" \
         "$UNITTEST_BIN" "[cgal]"
 
-    echo "  Note: MultiMesh C++ tests are tagged [!hide] and marked as work-in-progress."
-    if "$UNITTEST_BIN" "MultiMesh" 2>&1; then
-        pass "dolfin C++: MultiMesh tests"
-    else
-        echo "  (MultiMesh test failure recorded but not blocking – known WIP)"
-        skip "dolfin C++: MultiMesh tests (known WIP – 3D triangulation not yet implemented)"
-    fi
+    # ---- MultiMesh (MultiMesh.cpp) ----
+    run_check "dolfin C++: MultiMesh tests" \
+        "$UNITTEST_BIN" "MultiMesh"
 
     cd - > /dev/null || exit 1
 else

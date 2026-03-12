@@ -105,9 +105,7 @@ def test_multimesh_poisson_2d(exactsolution_2d):
     assert errornorm(exactsolution_2d, uh, 'L2', degree_rise=1) < DOLFIN_EPS_LARGE
 
 @pytest.mark.slow
-@pytest.mark.skip
 @skip_in_parallel
-@pytest.mark.skipif(True, reason="3D not fully implemented")
 def test_multimesh_poisson_3d(exactsolution_3d):
     # This tests solves a Poisson problem on two meshes in 3D with u =
     # x+y+z as exact solution
