@@ -44,7 +44,9 @@ class MultiMeshFunctionSpace(object):
         elif len(args) == 3:
             self._init_convenience(*args, **kwargs)
         else:
-            raise NotImplementedError
+            raise NotImplementedError(
+                "MultiMeshFunctionSpace: expected 2 arguments (multimesh, element) "
+                "or 3 arguments (multimesh, family, degree), got %d." % len(args))
 
     def __init_from_ufl(self, multimesh, element):
         self.info = [element]

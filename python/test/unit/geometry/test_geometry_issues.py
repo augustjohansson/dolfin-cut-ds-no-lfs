@@ -62,7 +62,7 @@ def test_segment_collides_point_3D_2():
     """
     mesh = Mesh()
     editor = MeshEditor()
-    editor.open(mesh, 1, 3)
+    editor.open(mesh, "interval", 1, 3)
     editor.init_vertices(2)
     editor.init_cells(1)
     editor.add_vertex(0, np.array( (41.06309891, 63.74219894, 68.10320282), dtype='float') )
@@ -81,7 +81,7 @@ def test_segment_collides_point_3D_2():
     # exactly representable and must be detected as inside.
     mesh2 = Mesh()
     editor2 = MeshEditor()
-    editor2.open(mesh2, 1, 3)
+    editor2.open(mesh2, "interval", 1, 3)
     editor2.init_vertices(2)
     editor2.init_cells(1)
     editor2.add_vertex(0, np.array((0.0, 0.0, 0.0), dtype='float'))

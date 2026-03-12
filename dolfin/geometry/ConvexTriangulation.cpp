@@ -299,6 +299,10 @@ ConvexTriangulation::triangulate(const std::vector<Point>& p,
   {
     return triangulate_graham_scan_2d(p);
   }
+  else if (tdim == 2 && gdim == 3)
+  {
+    return triangulate_graham_scan_2d_3d(p);
+  }
   else if (tdim == 3 && gdim == 3)
   {
     return triangulate_graham_scan_3d(p);
@@ -646,6 +650,48 @@ ConvexTriangulation::_triangulate_graham_scan_3d(const std::vector<Point>& input
         }
       }
     }
+  }
+
+  return triangulation;
+}
+
+//-----------------------------------------------------------------------------
+std::vector<std::vector<Point>>
+ConvexTriangulation::triangulate_graham_scan_2d_3d(const std::vector<Point>& input_points)
+{
+  // Triangulate a convex polygon in 3D ambient space (topological dim 2,
+  // geometric dim 3) by computing the planar convex hull and fan-triangulating
+  // from the first hull vertex.  Uses the same drop-axis projection as the
+  // 3D convex-hull helper above, so it handles any orientation.
+
+  std::vector<std::vector<Point>> triangulation;
+
+  const std::vector<Point> points = unique_points(input_points, 3, 3.0e-16);
+  const std::size_t n = points.size();
+
+  if (n < 3) return triangulation;
+
+  if (n == 3)
+  {
+    triangulation.push_back(points);
+    return triangulation;
+  }
+
+  // Compute ordered convex-hull indices (uses existing planar projection)
+  const std::vector<std::size_t> hull = convex_hull_planar_indices_robust(points);
+
+  if (hull.size() < 3) return triangulation;
+
+  // Fan triangulation from hull[0]
+  triangulation.reserve(hull.size() - 2);
+  for (std::size_t i = 1; i + 1 < hull.size(); ++i)
+  {
+    std::vector<Point> tri;
+    tri.reserve(3);
+    tri.push_back(points[hull[0]]);
+    tri.push_back(points[hull[i]]);
+    tri.push_back(points[hull[i + 1]]);
+    triangulation.push_back(std::move(tri));
   }
 
   return triangulation;

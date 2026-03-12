@@ -29,7 +29,7 @@ RUN python3 -m pip install --no-cache-dir -U "numpy<2" pytest pybind11 mpi4py pk
 
 WORKDIR /opt/src
 
-RUN git clone --depth 1 --single-branch --branch main \
+RUN git clone --depth 1 --single-branch --branch copilot/split-docker-test-scripts \
     https://github.com/augustjohansson/dolfin-cut-ds-no-lfs.git dolfin
 RUN git clone --depth 1 --single-branch --branch august/mergebb \
     https://github.com/augustjohansson/ffc-cut-ds.git

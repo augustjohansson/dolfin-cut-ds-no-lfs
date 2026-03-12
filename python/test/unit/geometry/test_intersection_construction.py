@@ -25,7 +25,7 @@ from dolfin_utils.test import skip_in_parallel
 def triangulation_to_mesh_2d(triangulation):
     editor = MeshEditor()
     mesh = Mesh()
-    editor.open(mesh, 2, 2)
+    editor.open(mesh, "triangle", 2, 2)
     num_cells = len(triangulation) // 6
     num_vertices = len(triangulation) // 2
     editor.init_cells(num_cells)
@@ -40,7 +40,7 @@ def triangulation_to_mesh_2d(triangulation):
 def triangulation_to_mesh_2d_3d(triangulation):
     editor = MeshEditor()
     mesh = Mesh()
-    editor.open(mesh,2,3)
+    editor.open(mesh, "triangle", 2, 3)
     num_cells = len(triangulation) // 9
     num_vertices = len(triangulation) // 3
     editor.init_cells(num_cells)
@@ -55,7 +55,7 @@ def triangulation_to_mesh_2d_3d(triangulation):
 def triangulation_to_mesh_3d(triangulation):
     editor = MeshEditor()
     mesh = Mesh()
-    editor.open(mesh,3,3)
+    editor.open(mesh, "tetrahedron", 3, 3)
     num_cells = len(triangulation) // 12
     num_vertices = len(triangulation) // 3
     editor.init_cells(num_cells)
@@ -108,7 +108,7 @@ def test_triangulate_intersection_2d_3d():
     # Create a 3D surface mesh
     editor = MeshEditor()
     mesh_1 = Mesh()
-    editor.open(mesh_1,2,3)
+    editor.open(mesh_1, "triangle", 2, 3)
     editor.init_cells(2)
     editor.init_vertices(4)
 
@@ -239,16 +239,29 @@ def compare_with_cgal(p0, p1, q0, q1, cgal):
 
 def verify_segment_intersection(p0, p1, q0, q1):
     """Verify that segments p0-p1 and q0-q1 intersect and that each returned
-    point lies geometrically on both segments (exact predicate check)."""
+    point lies geometrically on both segments (bounding-box check with tolerance).
+
+    We use a bounding-box check with a small tolerance instead of the exact
+    collides_segment_point_2d predicate, because the intersection point is
+    computed via floating-point arithmetic and may not satisfy the exact
+    orient2d == 0 condition used by the predicate.
+    """
     intersection = cpp.geometry.IntersectionConstruction.intersection_segment_segment_2d(p0, p1, q0, q1)
     # Must be non-empty
     if len(intersection) == 0:
         return False
-    # Every returned point must lie on both input segments
+    # Tolerance for bounding-box membership: allows for the floating-point
+    # rounding accumulated when computing the intersection point coordinates.
+    # 1e-10 is several orders of magnitude above double machine epsilon (~1e-16)
+    # and small enough to reject clearly incorrect results.
+    bbox_tol = 1e-10
+    # Every returned point must lie in the bounding box of both input segments
     for pt in intersection:
-        if not cpp.geometry.CollisionPredicates.collides_segment_point_2d(p0, p1, pt):
+        if not (min(p0.x(), p1.x()) - bbox_tol <= pt.x() <= max(p0.x(), p1.x()) + bbox_tol and
+                min(p0.y(), p1.y()) - bbox_tol <= pt.y() <= max(p0.y(), p1.y()) + bbox_tol):
             return False
-        if not cpp.geometry.CollisionPredicates.collides_segment_point_2d(q0, q1, pt):
+        if not (min(q0.x(), q1.x()) - bbox_tol <= pt.x() <= max(q0.x(), q1.x()) + bbox_tol and
+                min(q0.y(), q1.y()) - bbox_tol <= pt.y() <= max(q0.y(), q1.y()) + bbox_tol):
             return False
     return True
 

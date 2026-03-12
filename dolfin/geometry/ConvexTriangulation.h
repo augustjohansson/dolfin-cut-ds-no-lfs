@@ -55,6 +55,10 @@ namespace dolfin
       return _triangulate_graham_scan_2d(pm);
     }
 
+    /// Triangulate using the Graham scan 2D in 3D (polygon in 3D space)
+    static std::vector<std::vector<Point>>
+    triangulate_graham_scan_2d_3d(const std::vector<Point>& pm);
+
     /// Triangulate using the Graham scan 3D
     static std::vector<std::vector<Point>>
     triangulate_graham_scan_3d(const std::vector<Point>& pm);
