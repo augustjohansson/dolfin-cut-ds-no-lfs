@@ -49,7 +49,6 @@ def test_issue_168():
     vx = v(x)
 
 
-@pytest.mark.skipif(True, reason="Since cell.contains(point) is doing an exact calculation, we cannot assume that the midpoint is exactly in the cell")
 @skip_in_parallel
 def test_segment_collides_point_3D_2():
     """Test case by Oyvind from https://bitbucket.org/fenics-project/dolfin/issue/296 for segment point collision in 3D"""
@@ -105,7 +104,6 @@ def test_collision_robustness_slow():
 
 @skip_in_parallel
 @pytest.mark.slow
-@pytest.mark.skipif(True, reason='Very slow test cases')
 def test_collision_robustness_very_slow():
     """Test cases from https://bitbucket.org/fenics-project/dolfin/issue/296"""
     _test_collision_robustness_2d(  10, 1e-16,       1e-7)

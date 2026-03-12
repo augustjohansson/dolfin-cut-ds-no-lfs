@@ -68,7 +68,6 @@ def triangulation_to_mesh_3d(triangulation):
     return mesh
 
 @skip_in_parallel
-@pytest.mark.skipif(True, reason="Missing swig typemap")
 def test_triangulate_intersection_2d():
 
     # Create two meshes of the unit square
@@ -98,7 +97,6 @@ def test_triangulate_intersection_2d():
     assert round(volume - exactvolume, 7) == 0, errorstring
 
 @skip_in_parallel
-@pytest.mark.skipif(True, reason="Not implemented in 3D")
 def test_triangulate_intersection_2d_3d():
 
     # Note: this test will fail if the triangle mesh is aligned
@@ -147,7 +145,6 @@ def test_triangulate_intersection_2d_3d():
     assert round(volume - exact_volume, 7) == 0, errorstring
 
 @skip_in_parallel
-@pytest.mark.skipif(True, reason="Missing swig typemap for call to ConvexTriangulation")
 def test_triangulate_intersection_3d():
 
     # Create two meshes of the unit cube
@@ -241,7 +238,6 @@ def compare_with_cgal(p0, p1, q0, q1, cgal):
            abs(intersection[0][1] - cgal[1]) < DOLFIN_EPS
 
 @skip_in_parallel
-@pytest.mark.skipif(True, reason="This is a case where the intersection currently fails")
 def test_segment_segment_1():
     "Case that fails CGAL comparison. We get a different intersection point but still correct area."
     p0 = Point(-0.50000000000000710543,-0.50000000000000710543)
@@ -255,7 +251,6 @@ def test_segment_segment_1():
     assert compare_with_cgal(p0, p1, q0, q1, cgal)
 
 @skip_in_parallel
-@pytest.mark.skipif(True, reason="This is a case where the intersection currently fails")
 def test_segment_segment_2():
     "Case that fails CGAL comparison. We get a different intersection point but still correct area."
     p0 = Point(0.70710678118654746172,-0.70710678118654746172)
@@ -279,7 +274,6 @@ def test_segment_segment_3():
 
 
 @skip_in_parallel
-@pytest.mark.skipif(True, reason="This is a case where the intersection currently fails")
 def test_segment_segment_4():
     "Case that fails CGAL comparison. We get a different intersection point but still correct area."
     p0 = Point(0.70710678118654746172,-0.70710678118654746172)
