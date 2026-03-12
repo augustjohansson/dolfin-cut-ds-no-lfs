@@ -250,14 +250,18 @@ def verify_segment_intersection(p0, p1, q0, q1):
     # Must be non-empty
     if len(intersection) == 0:
         return False
-    eps = 1e-10
+    # Tolerance for bounding-box membership: allows for the floating-point
+    # rounding accumulated when computing the intersection point coordinates.
+    # 1e-10 is several orders of magnitude above double machine epsilon (~1e-16)
+    # and small enough to reject clearly incorrect results.
+    bbox_tol = 1e-10
     # Every returned point must lie in the bounding box of both input segments
     for pt in intersection:
-        if not (min(p0.x(), p1.x()) - eps <= pt.x() <= max(p0.x(), p1.x()) + eps and
-                min(p0.y(), p1.y()) - eps <= pt.y() <= max(p0.y(), p1.y()) + eps):
+        if not (min(p0.x(), p1.x()) - bbox_tol <= pt.x() <= max(p0.x(), p1.x()) + bbox_tol and
+                min(p0.y(), p1.y()) - bbox_tol <= pt.y() <= max(p0.y(), p1.y()) + bbox_tol):
             return False
-        if not (min(q0.x(), q1.x()) - eps <= pt.x() <= max(q0.x(), q1.x()) + eps and
-                min(q0.y(), q1.y()) - eps <= pt.y() <= max(q0.y(), q1.y()) + eps):
+        if not (min(q0.x(), q1.x()) - bbox_tol <= pt.x() <= max(q0.x(), q1.x()) + bbox_tol and
+                min(q0.y(), q1.y()) - bbox_tol <= pt.y() <= max(q0.y(), q1.y()) + bbox_tol):
             return False
     return True
 

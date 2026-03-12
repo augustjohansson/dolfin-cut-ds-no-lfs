@@ -19,7 +19,6 @@
 // Last changed: 2017-09-25
 
 #include "MeshPointIntersection.h"
-#include <dolfin/mesh/CellType.h>
 #include <dolfin/mesh/Mesh.h>
 #include "intersect.h"
 
