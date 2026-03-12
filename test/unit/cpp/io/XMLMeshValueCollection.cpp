@@ -21,7 +21,7 @@
 using namespace dolfin;
 
 //-----------------------------------------------------------------------------
-TEST_CASE("MeshValueCollection IO test", "[!hide][meshvaluecollection_io]")
+TEST_CASE("MeshValueCollection IO test", "[meshvaluecollection_io]")
 {
   // Create mesh and read file
   // Link to the mesh is quite long...

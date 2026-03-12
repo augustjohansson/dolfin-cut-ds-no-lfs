@@ -22,7 +22,6 @@
 # First added:  2016-11-02
 # Last changed: 2016-11-14
 
-import pytest
 
 from dolfin import *
 from dolfin_utils.test import skip_in_parallel
@@ -103,9 +102,6 @@ def test_meshes_on_diagonal():
     #     assert(create_multimesh_with_meshes_on_diagonal(width, offset, Nx))
 
 @skip_in_parallel
-@pytest.mark.xfail(
-    reason="known issue: degenerate boundary-edge overlap double-counts interface area"
-)
 def test_meshes_with_boundary_edge_overlap_2d():
     # start with boundary of mesh 1 overlapping edges of mesg 0
     mesh0 = UnitSquareMesh(4,4)

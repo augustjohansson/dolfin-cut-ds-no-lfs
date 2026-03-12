@@ -26,7 +26,7 @@
 
 using namespace dolfin;
 
-TEST_CASE("MultiMesh", "[!hide]")
+TEST_CASE("MultiMesh", "[multimesh]")
 {
   SECTION("Trivial test case 3D")
   {

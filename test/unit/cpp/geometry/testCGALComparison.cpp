@@ -24,7 +24,7 @@
 #include "../geometry/CollisionPredicates.h"
 #include "../geometry/predicates.h"
 #include "../geometry/Point.h"
-#include "catch/catch.hpp"
+#include <catch.hpp>
 
 using namespace dolfin;
 

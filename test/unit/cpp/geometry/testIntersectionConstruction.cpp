@@ -20,7 +20,7 @@
 #include "../geometry/IntersectionConstruction.h"
 #include "../geometry/Point.h"
 #include "../geometry/predicates.h"
-#include "catch/catch.hpp"
+#include <catch.hpp>
 
 using namespace dolfin;
 
