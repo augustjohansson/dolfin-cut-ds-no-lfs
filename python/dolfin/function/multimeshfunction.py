@@ -84,9 +84,14 @@ class MultiMeshFunction(ufl.Coefficient):
                 # Copy constructor used to be here
                 raise RuntimeError("Use 'MultiMeshFunction.copy(deepcopy=True)' for copying.")
             else:
-                raise NotImplementedError
+                raise NotImplementedError(
+                    "MultiMeshFunction: initialization from a MultiMeshFunction "
+                    "with additional arguments is not implemented.")
         elif isinstance(args[0], cpp.function.MultiMeshFunction):
-            raise NotImplementedError
+            raise NotImplementedError(
+                "MultiMeshFunction: initialization from a C++ MultiMeshFunction "
+                "object is not implemented. Use MultiMeshFunction(V) with a "
+                "MultiMeshFunctionSpace instead.")
         elif isinstance(args[0], MultiMeshFunctionSpace):
             V = args[0]
             # If initialising from a FunctionSpace
@@ -98,7 +103,10 @@ class MultiMeshFunction(ufl.Coefficient):
             elif len(args) == 2:
                 other = args[1]
                 if isinstance(other, cpp.function.MultiMeshFunction):
-                    raise NotImplementedError
+                    raise NotImplementedError(
+                        "MultiMeshFunction: initialization from a "
+                        "MultiMeshFunctionSpace and a C++ MultiMeshFunction "
+                        "vector is not implemented.")
                 else:
                     self._cpp_object = cpp.function.MultiMeshFunction.__init__(self, V, other)
                     ufl.Coefficient.__init__(self, V._parts[0]
@@ -225,7 +233,9 @@ class MultiMeshFunction(ufl.Coefficient):
                 mmf.assign_part(j, self.part(j).sub(i))
             return mmf
         else:
-            raise NotImplementedError
+            raise NotImplementedError(
+                "MultiMeshFunction.sub: shallow (non-deepcopy) sub-function "
+                "extraction is not implemented. Use sub(i, deepcopy=True) instead.")
 
     def split(self, deepcopy=False):
         """Extract any sub functions.

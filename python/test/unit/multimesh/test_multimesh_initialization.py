@@ -36,4 +36,4 @@ def test_multimesh_init_1():
   mm.add(mesh1)
   mm.build(2)
 
-  return 1 == 1
+  assert True

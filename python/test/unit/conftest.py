@@ -1,6 +1,13 @@
+import warnings
 import pytest
 import gc
 from dolfin import MPI
+
+try:
+    from ffc.quadrature.deprecation import QuadratureRepresentationDeprecationWarning
+    warnings.simplefilter("ignore", QuadratureRepresentationDeprecationWarning)
+except ImportError:
+    pass
 
 def pytest_runtest_teardown(item):
     """Collect garbage after every test to force calling
