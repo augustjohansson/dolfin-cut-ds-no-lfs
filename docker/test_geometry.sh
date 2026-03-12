@@ -95,7 +95,7 @@ fi
 
 section "dolfin Python unit tests  –  meshview"
 
-DOLFIN_PY_MESH_TEST="$DOLFIN_SRC_DIR/test/unit/python/mesh/test_meshview.py"
+DOLFIN_PY_MESH_TEST="$DOLFIN_SRC_DIR/python/test/unit/mesh/test_meshview.py"
 if [ -f "$DOLFIN_PY_MESH_TEST" ]; then
     export PYTHONPATH="$DOLFIN_BUILD_DIR/python:${PYTHONPATH:-}"
     run_check "dolfin Python: test_meshview" \
