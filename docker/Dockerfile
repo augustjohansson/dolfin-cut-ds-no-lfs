@@ -29,10 +29,7 @@ RUN python3 -m pip install --no-cache-dir -U "numpy<2" pytest pybind11 mpi4py pk
 
 WORKDIR /opt/src
 
-# DOLFIN_BRANCH can be overridden at build time to test a feature branch, e.g.:
-#   docker build --build-arg DOLFIN_BRANCH=copilot/update-docker-test-script ...
-ARG DOLFIN_BRANCH=main
-RUN git clone --depth 1 --single-branch --branch ${DOLFIN_BRANCH} \
+RUN git clone --depth 1 --single-branch --branch main \
     https://github.com/augustjohansson/dolfin-cut-ds-no-lfs.git dolfin
 RUN git clone --depth 1 --single-branch --branch august/mergebb \
     https://github.com/augustjohansson/ffc-cut-ds.git
@@ -65,10 +62,6 @@ RUN cd /opt/src/ffc-cut-ds/libs/ffc-factory && \
 #   -DDOLFIN_USE_CGAL=ON             – use CGAL EPICK predicates/intersections
 #
 # CGAL is already installed (libcgal-dev, libgmp-dev, libmpfr-dev).
-# Change the flag below to ON to select CGAL for all geometry routines
-# and enable the [cgal] C++ unit-test suite.  With OFF the built-in
-# Shewchuk predicates are used and the [cgal] tests compile but produce
-# zero test cases at run time.
 RUN cd /opt/src/dolfin && git pull && \
     mkdir -p /opt/build/dolfin && cd /opt/build/dolfin && \
     cmake -G Ninja /opt/src/dolfin \
