@@ -200,3 +200,54 @@ def test_volume_2d_six_meshes():
     print("approximative volume ", approximate_volume)
     print("approximate volume error %1.16e" % (exact_volume - approximate_volume))
     assert abs(exact_volume - approximate_volume) < DOLFIN_EPS_LARGE
+
+@skip_in_parallel
+def test_volume_3d():
+    "Integrate volume of a 3D multimesh (background + overlapping interior mesh)."
+
+    # Background mesh covers the unit cube exactly
+    mesh_0 = UnitCubeMesh(3, 3, 3)
+    exact_volume = 1.0
+
+    # Overlapping mesh: a box strictly inside the unit cube.
+    # Its cells will replace parts of the background mesh, but the total
+    # covered volume should still equal the unit cube volume.
+    mesh_1 = BoxMesh(Point(0.25, 0.25, 0.25), Point(0.75, 0.75, 0.75), 2, 2, 2)
+
+    multimesh = MultiMesh()
+    multimesh.add(mesh_0)
+    multimesh.add(mesh_1)
+    multimesh.build()
+
+    approximate_volume = compute_volume(multimesh)
+
+    print("exact volume ", exact_volume)
+    print("approximative volume ", approximate_volume)
+    print("approximate volume error %1.16e" % (exact_volume - approximate_volume))
+    assert abs(exact_volume - approximate_volume) < DOLFIN_EPS_LARGE
+
+
+@skip_in_parallel
+def test_volume_3d_two_overlapping():
+    "Integrate volume of a 3D multimesh with two non-trivially overlapping meshes."
+
+    # Background mesh
+    mesh_0 = UnitCubeMesh(3, 3, 3)
+
+    # Mesh 1: a slab entirely inside the unit cube [0.25,0.75]x[0,1]x[0,1].
+    # Its cells replace part of the background, keeping total volume = 1.
+    mesh_1 = BoxMesh(Point(0.25, 0.0, 0.0), Point(0.75, 1.0, 1.0), 2, 3, 3)
+
+    multimesh = MultiMesh()
+    multimesh.add(mesh_0)
+    multimesh.add(mesh_1)
+    multimesh.build()
+
+    # Total covered domain is still the unit cube
+    exact_volume = 1.0
+    approximate_volume = compute_volume(multimesh)
+
+    print("exact volume ", exact_volume)
+    print("approximative volume ", approximate_volume)
+    print("approximate volume error %1.16e" % (exact_volume - approximate_volume))
+    assert abs(exact_volume - approximate_volume) < DOLFIN_EPS_LARGE

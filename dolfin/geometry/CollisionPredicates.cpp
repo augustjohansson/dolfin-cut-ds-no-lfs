@@ -1136,11 +1136,11 @@ bool CollisionPredicates::_collides_tetrahedron_tetrahedron_3d(const Point& p0,
 bool dolfin::CollisionPredicates::collides(const dolfin::MeshEntity& entity,
                                            const dolfin::Point& point)
 {
-  // Only simplex meshes are supported
   const dolfin::MeshGeometry& g = entity.mesh().geometry();
   const unsigned int* v = entity.entities(0);
   const std::size_t tdim = entity.mesh().topology().dim();
   const std::size_t gdim = g.dim();
+  const std::size_t num_vertices = entity.num_entities(0);
 
   if (tdim == 1 && gdim == 1)
     return collides_segment_point_1d(g.point(v[0])[0], g.point(v[1])[0], point[0]);
@@ -1151,17 +1151,52 @@ bool dolfin::CollisionPredicates::collides(const dolfin::MeshEntity& entity,
   if (tdim == 1 && gdim == 3)
     return collides_segment_point_3d(g.point(v[0]), g.point(v[1]), point);
 
-  if (tdim == 2 && gdim == 2)
+  // Triangle (tdim=2, 3 vertices)
+  if (tdim == 2 && gdim == 2 && num_vertices == 3)
     return collides_triangle_point_2d(g.point(v[0]), g.point(v[1]),
+                                      g.point(v[2]), point);
+
+  // Quadrilateral (tdim=2, 4 vertices, gdim=2): decompose into 2 triangles.
+  // DOLFIN quad vertex ordering: v[0]=bottom-left, v[1]=bottom-right,
+  // v[2]=top-left, v[3]=top-right.
+  if (tdim == 2 && gdim == 2 && num_vertices == 4)
+    return collides_triangle_point_2d(g.point(v[0]), g.point(v[1]),
+                                      g.point(v[3]), point) ||
+           collides_triangle_point_2d(g.point(v[0]), g.point(v[3]),
                                       g.point(v[2]), point);
 
   if (tdim == 2 && gdim == 3)
     return collides_triangle_point_3d(g.point(v[0]), g.point(v[1]),
                                       g.point(v[2]), point);
 
-  if (tdim == 3)
+  // Tetrahedron (tdim=3, 4 vertices)
+  if (tdim == 3 && num_vertices == 4)
     return collides_tetrahedron_point_3d(g.point(v[0]), g.point(v[1]),
                                          g.point(v[2]), g.point(v[3]), point);
+
+  // Hexahedron (tdim=3, 8 vertices): decompose into 6 tetrahedra (Kuhn
+  // decomposition using the main diagonal v[0]-v[7]).
+  // DOLFIN hex vertex ordering:
+  //   v[0]=(x0,y0,z0), v[1]=(x1,y0,z0), v[2]=(x0,y1,z0), v[3]=(x1,y1,z0)
+  //   v[4]=(x0,y0,z1), v[5]=(x1,y0,z1), v[6]=(x0,y1,z1), v[7]=(x1,y1,z1)
+  if (tdim == 3 && num_vertices == 8)
+  {
+    const dolfin::Point& p0 = g.point(v[0]);
+    const dolfin::Point& p1 = g.point(v[1]);
+    const dolfin::Point& p2 = g.point(v[2]);
+    const dolfin::Point& p3 = g.point(v[3]);
+    const dolfin::Point& p4 = g.point(v[4]);
+    const dolfin::Point& p5 = g.point(v[5]);
+    const dolfin::Point& p6 = g.point(v[6]);
+    const dolfin::Point& p7 = g.point(v[7]);
+    // Six Kuhn tetrahedra sharing the diagonal p0-p7
+    return collides_tetrahedron_point_3d(p0, p1, p3, p7, point) ||
+           collides_tetrahedron_point_3d(p0, p1, p5, p7, point) ||
+           collides_tetrahedron_point_3d(p0, p2, p3, p7, point) ||
+           collides_tetrahedron_point_3d(p0, p2, p6, p7, point) ||
+           collides_tetrahedron_point_3d(p0, p4, p5, p7, point) ||
+           collides_tetrahedron_point_3d(p0, p4, p6, p7, point);
+  }
 
   return false;
 }

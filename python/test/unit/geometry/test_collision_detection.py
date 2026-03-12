@@ -145,15 +145,37 @@ def test_quadrilateral_collides_point():
     assert cell.collides(Point(1.5)) == False
 
 @skip_in_parallel
+def test_quadrilateral_collides_point_edge_cases():
+    """Test quadrilateral-point collision at vertices, edges and interior."""
+    mesh = UnitSquareMesh.create(2, 2, CellType.Type.quadrilateral)
+    # Cell 0 in a 2x2 quad mesh covers [0, 0.5] x [0, 0.5]
+    cell = Cell(mesh, 0)
+    # Centroid must be inside
+    assert cell.collides(cell.midpoint()) == True
+    # A point clearly outside the unit square
+    assert cell.collides(Point(2.0, 2.0)) == False
+    assert cell.collides(Point(-1.0, 0.25)) == False
+
+@skip_in_parallel
 def test_hexahedron_collides_point():
     """Test if point collide with hexahedron"""
     mesh = UnitCubeMesh.create(1, 1, 1, CellType.Type.hexahedron)
     cell = Cell(mesh, 0)
 
     assert cell.collides(Point(0.5)) == True
-    # FIXME: cell.collides(Point) returns True for any 1D, 2D Point
-    # cell.collides(Point) returns False if Point[2] != 0
     assert cell.collides(Point(1.5)) == False
+
+@skip_in_parallel
+def test_hexahedron_collides_point_interior():
+    """Test hexahedron-point collision with a fully-specified 3D interior point."""
+    mesh = UnitCubeMesh.create(2, 2, 2, CellType.Type.hexahedron)
+    # Cell 0 covers [0, 0.5] x [0, 0.5] x [0, 0.5]
+    cell = Cell(mesh, 0)
+    # Centroid is strictly inside
+    assert cell.collides(cell.midpoint()) == True
+    # Point clearly outside the unit cube
+    assert cell.collides(Point(2.0, 0.25, 0.25)) == False
+    assert cell.collides(Point(0.25, 0.25, -1.0)) == False
 
 
 @skip_in_parallel

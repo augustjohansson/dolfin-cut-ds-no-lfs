@@ -79,5 +79,4 @@ def test_mesh_point_3d_hexahedron():
 
     intersection = intersect(mesh, point)
 
-    # Returns [] now, but [136] is the correct cell.
     assert intersection.intersected_cells() == [136]

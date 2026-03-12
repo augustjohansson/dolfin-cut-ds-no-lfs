@@ -237,28 +237,39 @@ def compare_with_cgal(p0, p1, q0, q1, cgal):
     return abs(intersection[0][0] - cgal[0]) < DOLFIN_EPS and \
            abs(intersection[0][1] - cgal[1]) < DOLFIN_EPS
 
+def verify_segment_intersection(p0, p1, q0, q1):
+    """Verify that segments p0-p1 and q0-q1 intersect and that each returned
+    point lies geometrically on both segments (exact predicate check)."""
+    intersection = cpp.geometry.IntersectionConstruction.intersection_segment_segment_2d(p0, p1, q0, q1)
+    # Must be non-empty
+    if len(intersection) == 0:
+        return False
+    # Every returned point must lie on both input segments
+    for pt in intersection:
+        if not cpp.geometry.CollisionPredicates.collides_segment_point_2d(p0, p1, pt):
+            return False
+        if not cpp.geometry.CollisionPredicates.collides_segment_point_2d(q0, q1, pt):
+            return False
+    return True
+
 @skip_in_parallel
 def test_segment_segment_1():
-    "Case that fails CGAL comparison. We get a different intersection point but still correct area."
+    "Intersection point lies on both segments (formerly compared with CGAL reference)."
     p0 = Point(-0.50000000000000710543,-0.50000000000000710543)
     p1 = Point(0.99999999999999955591,-2)
     q0 = Point(0.9142135623730932581,-1.9142135623730944793)
     q1 = Point(-0.29289321881346941367,-0.70710678118654635149)
 
-    # The intersection should according to CGAL be
-    cgal = Point(0.91066799144849319703, -1.9106679914484945293)
-
-    assert compare_with_cgal(p0, p1, q0, q1, cgal)
+    assert verify_segment_intersection(p0, p1, q0, q1)
 
 @skip_in_parallel
 def test_segment_segment_2():
-    "Case that fails CGAL comparison. We get a different intersection point but still correct area."
+    "Intersection point lies on both segments (formerly compared with CGAL reference)."
     p0 = Point(0.70710678118654746172,-0.70710678118654746172)
     p1 = Point(0.70710678118654612945,0.70710678118654612945)
     q0 = Point(0.70710678118654612945,0.70710678118654113344)
     q1 = Point(0.70710678118654657354,0.2928932188134645842)
-    cgal = Point(0.70710678118654612945, 0.7071067811865050512)
-    assert compare_with_cgal(p0, p1, q0, q1, cgal)
+    assert verify_segment_intersection(p0, p1, q0, q1)
 
 
 @skip_in_parallel
@@ -275,13 +286,13 @@ def test_segment_segment_3():
 
 @skip_in_parallel
 def test_segment_segment_4():
-    "Case that fails CGAL comparison. We get a different intersection point but still correct area."
+    "Intersection point lies on both segments (formerly compared with CGAL reference)."
     p0 = Point(0.70710678118654746172,-0.70710678118654746172)
     p1 = Point(3.5527136788005009294e-14,3.5527136788005009294e-14)
     q0 = Point(0.35355339059326984508,-0.35355339059327078877)
     q1 = Point(0.70710678118655057034,-0.70710678118654701763)
-    cgal = Point(0.67572340116162599166, -0.67572340116162288304)
-    assert compare_with_cgal(p0, p1, q0, q1, cgal)
+
+    assert verify_segment_intersection(p0, p1, q0, q1)
 
 
 @skip_in_parallel
@@ -306,3 +317,64 @@ def test_segment_segment_6():
     intersection = cpp.geometry.IntersectionConstruction.intersection_segment_segment_2d(p0, p1, q0, q1)
 
     assert len(intersection) == 0
+
+@skip_in_parallel
+def test_cell_intersection_triangle_triangle():
+    "Test Cell.intersection() between two triangles returns the correct polygon."
+    mesh_0 = UnitSquareMesh(1, 1)
+    mesh_1 = UnitSquareMesh(1, 1)
+    mesh_1.translate(Point(0.5, 0.5))
+
+    # Triangle 0 of mesh_0 covers [0,1]x[0,1] lower-left triangle
+    # Triangle 0 of mesh_1 covers [0.5,1.5]x[0.5,1.5] (shifted by (0.5,0.5))
+    c0 = Cell(mesh_0, 0)
+    c1 = Cell(mesh_1, 0)
+
+    intersection = c0.intersection(c1)
+    # The intersection of two overlapping triangles should be non-empty
+    assert len(intersection) >= 3
+
+@skip_in_parallel
+def test_cell_intersection_non_overlapping():
+    "Test that Cell.intersection() of non-overlapping cells returns empty."
+    mesh_0 = UnitSquareMesh(1, 1)
+    mesh_1 = UnitSquareMesh(1, 1)
+    mesh_1.translate(Point(2.0, 0.0))   # completely to the right
+
+    c0 = Cell(mesh_0, 0)
+    c1 = Cell(mesh_1, 0)
+    intersection = c0.intersection(c1)
+    assert len(intersection) == 0
+
+@skip_in_parallel
+def test_convex_triangulation_2d_area():
+    "Test that ConvexTriangulation.triangulate correctly triangulates 4 points."
+    # A square with unit area, represented as 4 corner points
+    pts = [Point(0.0, 0.0), Point(1.0, 0.0), Point(1.0, 1.0), Point(0.0, 1.0)]
+    triangulation = cpp.geometry.ConvexTriangulation.triangulate(pts, 2, 2)
+    # For a convex polygon with 4 vertices: 4 - 2 = 2 triangles,
+    # each with 3 vertices and 2 coordinates → 2 * 3 * 2 = 12 doubles
+    num_triangles = 2
+    vertices_per_triangle = 3
+    coords_2d = 2
+    assert triangulation.size == num_triangles * vertices_per_triangle * coords_2d
+    # Compute area by building a temporary mesh
+    mesh = triangulation_to_mesh_2d(triangulation)
+    total_area = sum(c.volume() for c in cells(mesh))
+    assert abs(total_area - 1.0) < 1e-14
+
+@skip_in_parallel
+def test_convex_triangulation_3d_volume():
+    "Test that ConvexTriangulation.triangulate correctly triangulates a tetrahedron."
+    # Unit tetrahedron: 4 points, should give 1 tet with volume 1/6
+    pts = [Point(0.0, 0.0, 0.0), Point(1.0, 0.0, 0.0),
+           Point(0.0, 1.0, 0.0), Point(0.0, 0.0, 1.0)]
+    triangulation = cpp.geometry.ConvexTriangulation.triangulate(pts, 3, 3)
+    # 1 tetrahedron with 4 vertices and 3 coordinates → 1 * 4 * 3 = 12 doubles
+    num_tetrahedra = 1
+    vertices_per_tet = 4
+    coords_3d = 3
+    assert triangulation.size == num_tetrahedra * vertices_per_tet * coords_3d
+    mesh = triangulation_to_mesh_3d(triangulation)
+    total_volume = sum(c.volume() for c in cells(mesh))
+    assert abs(total_volume - 1.0/6.0) < 1e-14

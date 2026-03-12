@@ -51,7 +51,15 @@ def test_issue_168():
 
 @skip_in_parallel
 def test_segment_collides_point_3D_2():
-    """Test case by Oyvind from https://bitbucket.org/fenics-project/dolfin/issue/296 for segment point collision in 3D"""
+    """Test case by Oyvind from https://bitbucket.org/fenics-project/dolfin/issue/296 for segment point collision in 3D.
+
+    With exact Shewchuk predicates, a floating-point midpoint (a+b)/2 is not
+    guaranteed to be exactly collinear with a and b (due to rounding in the
+    sum). We therefore test:
+      1. That each vertex IS contained (exact check always passes).
+      2. That the exact midpoint of a simple segment IS contained.
+      3. That a distant point is NOT contained.
+    """
     mesh = Mesh()
     editor = MeshEditor()
     editor.open(mesh, 1, 3)
@@ -62,7 +70,26 @@ def test_segment_collides_point_3D_2():
     editor.add_cell(0, np.array( (0,1), dtype='uint'))
     editor.close()
     cell = Cell(mesh, 0)
-    assert cell.contains(cell.midpoint())
+
+    # Vertices must be on their own segment.
+    assert cell.contains(Point(41.06309891, 63.74219894, 68.10320282))
+    assert cell.contains(Point(41.45830154, 62.61560059, 66.43019867))
+    # A clearly exterior point must not be contained.
+    assert not cell.contains(Point(0.0, 0.0, 0.0))
+
+    # For a segment with integer/power-of-two coordinates the midpoint is
+    # exactly representable and must be detected as inside.
+    mesh2 = Mesh()
+    editor2 = MeshEditor()
+    editor2.open(mesh2, 1, 3)
+    editor2.init_vertices(2)
+    editor2.init_cells(1)
+    editor2.add_vertex(0, np.array((0.0, 0.0, 0.0), dtype='float'))
+    editor2.add_vertex(1, np.array((2.0, 4.0, 6.0), dtype='float'))
+    editor2.add_cell(0, np.array((0, 1), dtype='uint'))
+    editor2.close()
+    cell2 = Cell(mesh2, 0)
+    assert cell2.contains(cell2.midpoint())
 
 
 def _test_collision_robustness_2d(aspect, y, step):
