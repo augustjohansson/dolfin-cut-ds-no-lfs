@@ -463,7 +463,7 @@ ConvexTriangulation::_triangulate_graham_scan_2d(const std::vector<Point>& input
     const Point& a = points[order[i]];
     const Point& b = points[order[i + 1]];
 
-    // If you trust the filtering above, this orient2d check is usually enough:
+    // If trust the filtering above, this orient2d check is usually enough:
     // if (orient2d(p0, a, b) == 0.0) continue;
 
     std::vector<Point> tri;
@@ -485,7 +485,7 @@ static inline int signum(double x) noexcept
 }
 
 // Pack an ordered triple (i<j<k) into a 64-bit key.
-// Works as long as indices fit in 21 bits each (2 million). For n~100 you're fine.
+// Works as long as indices fit in 21 bits each (2 million)
 static inline std::uint64_t pack3(std::uint32_t i, std::uint32_t j, std::uint32_t k) noexcept
 {
   return (std::uint64_t(i) << 42) | (std::uint64_t(j) << 21) | std::uint64_t(k);
@@ -623,7 +623,7 @@ ConvexTriangulation::_triangulate_graham_scan_3d(const std::vector<Point>& input
           const Point& a = coplanar_points[edge.first];
           const Point& b = coplanar_points[edge.second];
 
-          // order matches your original: {polyhedroncenter, coplanar_center, a, b}
+          // Match order
           push_tet(polyhedroncenter, coplanar_center, a, b);
 
 #ifdef DOLFIN_ENABLE_GEOMETRY_DEBUGGING
