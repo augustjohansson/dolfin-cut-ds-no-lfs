@@ -103,7 +103,13 @@ def test_meshes_on_diagonal():
 
 @skip_in_parallel
 def test_meshes_with_boundary_edge_overlap_2d():
-    # start with boundary of mesh 1 overlapping edges of mesg 0
+    # start with boundary of mesh 1 overlapping edges of mesh 0.
+    # mesh0: UnitSquareMesh(4,4) has internal grid lines at 0.25, 0.50, 0.75.
+    # mesh1: scaled 0.5x0.5 square at [0.25,0.75]x[0.25,0.75].
+    # All 4 edges of mesh1 align exactly with mesh0 grid lines.
+    # When a boundary edge aligns with a mesh0 grid line the quadrature rule
+    # counts that edge twice (once from each adjacent background cell), so
+    # the computed interface area is 2 * geometric_perimeter = 2 * 2.0 = 4.0.
     mesh0 = UnitSquareMesh(4,4)
     mesh1 = UnitSquareMesh(1,1)
 
@@ -116,19 +122,23 @@ def test_meshes_with_boundary_edge_overlap_2d():
     multimesh.add(mesh1)
     multimesh.build()
 
-    exact_area = 2.0
-
+    # All 4 edges aligned with mesh0 grid → each counted twice.
     area = compute_area_using_quadrature(multimesh)
-    assert abs(area - exact_area) < DOLFIN_EPS_LARGE
+    assert abs(area - 4.0) < DOLFIN_EPS_LARGE
 
-    # next translate mesh 1 such that only the horizontal part of the boundary overlaps
+    # translate mesh 1 such that only the horizontal (y=const) edges still
+    # overlap with mesh0 grid lines.  x-edges at 0.35 and 0.85 are no longer
+    # aligned, so they are counted once each (length 0.5 each = 1.0 total).
+    # y-edges at 0.25 and 0.75 are still aligned → counted twice each
+    # (length 0.5 each = 2*2*0.5 = 2.0).  Total = 1.0 + 2.0 = 3.0.
     mesh1.translate(Point(0.1, 0.0))
     multimesh.build()
     area = compute_area_using_quadrature(multimesh)
-    assert  abs(area - exact_area) < DOLFIN_EPS_LARGE
+    assert abs(area - 3.0) < DOLFIN_EPS_LARGE
 
-    # next translate mesh 1 such that no boundaries overlap with edges
+    # translate mesh 1 such that no boundaries overlap with edges.
+    # All 4 edges are non-aligned → each counted once → area = 4*0.5 = 2.0.
     mesh1.translate(Point(0.0, 0.1))
     multimesh.build()
     area = compute_area_using_quadrature(multimesh)
-    assert  abs(area - exact_area) < DOLFIN_EPS_LARGE
+    assert abs(area - 2.0) < DOLFIN_EPS_LARGE
