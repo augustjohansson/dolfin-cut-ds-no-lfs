@@ -29,7 +29,7 @@ RUN python3 -m pip install --no-cache-dir -U "numpy<2" pytest pybind11 mpi4py pk
 
 WORKDIR /opt/src
 
-RUN git clone --depth 1 --single-branch --branch copilot/split-docker-test-scripts \
+RUN git clone --depth 1 --single-branch --branch main \
     https://github.com/augustjohansson/dolfin-cut-ds-no-lfs.git dolfin
 RUN git clone --depth 1 --single-branch --branch august/mergebb \
     https://github.com/augustjohansson/ffc-cut-ds.git
@@ -80,12 +80,7 @@ RUN cd /opt/src/dolfin && git pull && \
         test/unit/cpp/unittests \
         demo/undocumented/multimesh-poisson/cpp/demo_multimesh-poisson \
         demo/undocumented/multimesh-stokes/cpp/demo_multimesh-stokes \
-        demo/undocumented/multimesh-3d/cpp/demo_multimesh-3d \
-        demo/undocumented/meshview-2D2D/cpp/demo_meshview-2D2D \
-        demo/undocumented/meshview-3D1D/cpp/demo_meshview-3D1D \
-        demo/undocumented/meshview-3D2D/cpp/demo_meshview-3D2D \
-        demo/undocumented/meshview-3D3D/cpp/demo_meshview-3D3D \
-        demo/documented/nonmatching-interpolation/cpp/demo_nonmatching-interpolation && \
+        demo/undocumented/multimesh-3d/cpp/demo_multimesh-3d && \
     ninja install && \
     ldconfig
 
