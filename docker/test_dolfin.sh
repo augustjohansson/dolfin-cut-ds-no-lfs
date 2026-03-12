@@ -189,7 +189,7 @@ if [ -x "$DEMO_BASE/undocumented/multimesh-3d/cpp/demo_multimesh-3d" ]; then
         "$DEMO_BASE/undocumented/multimesh-3d/cpp" \
         "demo_multimesh-3d"
 else
-    skip "demo: multimesh-3d not in standard build (not listed in demo/CMakeLists.txt)"
+    fail "demo: multimesh-3d binary not found (expected to be built)"
 fi
 
 run_demo "demo: nonmatching-interpolation (C++)" \
@@ -202,7 +202,7 @@ for mv_name in meshview-2D2D meshview-3D1D meshview-3D2D meshview-3D3D; do
             "$DEMO_BASE/undocumented/$mv_name/cpp" \
             "demo_$mv_name"
     else
-        skip "demo: $mv_name not in standard build (not listed in demo/CMakeLists.txt)"
+        fail "demo: $mv_name binary not found (expected to be built)"
     fi
 done
 
