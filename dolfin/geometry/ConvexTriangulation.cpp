@@ -304,7 +304,11 @@ ConvexTriangulation::triangulate(const std::vector<Point>& p,
     return triangulate_graham_scan_3d(p);
   }
 
-  throw std::runtime_error("Triangulation of polyhedron of topological dimension %u and geometric dimension %u not implemented");
+  throw std::runtime_error("Triangulation of polyhedron of topological dimension " +
+                           std::to_string(tdim) +
+                           " and geometric dimension " +
+                           std::to_string(gdim) +
+                           " not implemented");
 
   return std::vector<std::vector<Point>>();
 }
@@ -675,7 +679,13 @@ ConvexTriangulation::triangulate_graham_scan_3d(const std::vector<Point>& pm)
   const double reference_volume = cgal_polyhedron_volume(pm);
 
   if (std::abs(volume - reference_volume) > 1e-14)
-    throw std::runtime_error("computed volume %f, but reference volume is %f (diff %e)");
+    throw std::runtime_error("computed volume " +
+                             std::to_string(volume) +
+                             ", but reference volume is " +
+                             std::to_string(reference_volume) +
+                             " (diff " +
+                             std::to_string(std::abs(volume - reference_volume)) +
+                             ")");
 
 #endif
   return triangulation;
