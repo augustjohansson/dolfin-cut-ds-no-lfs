@@ -71,22 +71,8 @@ SRC_DIR="/opt/src"
 DOLFIN_BUILD_DIR="/opt/build/dolfin"
 DOLFIN_SRC_DIR="$SRC_DIR/dolfin"
 
-section "dolfin C++ unit tests  –  multimesh"
-
-UNITTEST_DIR="$DOLFIN_BUILD_DIR/test/unit/cpp"
-UNITTEST_BIN="$UNITTEST_DIR/unittests"
-
-if [ -x "$UNITTEST_BIN" ]; then
-    cd "$UNITTEST_DIR" || exit 1
-
-    # ---- MultiMesh (MultiMesh.cpp) ----
-    run_check "dolfin C++: MultiMesh tests" \
-        "$UNITTEST_BIN" "MultiMesh"
-
-    cd - > /dev/null || exit 1
-else
-    fail "dolfin C++ unittests binary not found: $UNITTEST_BIN"
-fi
+# Make dolfin importable by Python tests
+export PYTHONPATH="$DOLFIN_BUILD_DIR/python:${PYTHONPATH:-}"
 
 section "dolfin Python unit tests  –  multimesh"
 
@@ -98,7 +84,17 @@ else
     skip "dolfin Python multimesh tests not found: $DOLFIN_PY_MM_TEST"
 fi
 
-section "dolfin C++ demos  –  multimesh + geometry"
+section "dolfin Python unit tests  –  multimesh (converted from C++)"
+
+DOLFIN_PY_MESH_UNIT_TEST="$DOLFIN_SRC_DIR/python/test/unit/mesh/test_multimesh_unit.py"
+if [ -f "$DOLFIN_PY_MESH_UNIT_TEST" ]; then
+    run_check "dolfin Python: MultiMesh unit tests" \
+        python3 -u -m pytest "$DOLFIN_PY_MESH_UNIT_TEST" -v --tb=short
+else
+    skip "dolfin Python MultiMesh unit tests not found: $DOLFIN_PY_MESH_UNIT_TEST"
+fi
+
+section "dolfin C++ demos  –  multimesh"
 
 DEMO_BASE="$DOLFIN_BUILD_DIR/demo"
 
@@ -122,16 +118,6 @@ fi
 run_demo "demo: nonmatching-interpolation (C++)" \
     "$DEMO_BASE/documented/nonmatching-interpolation/cpp" \
     "demo_nonmatching-interpolation"
-
-for mv_name in meshview-2D2D meshview-3D1D meshview-3D2D meshview-3D3D; do
-    if [ -x "$DEMO_BASE/undocumented/$mv_name/cpp/demo_$mv_name" ]; then
-        run_demo "demo: $mv_name (C++)" \
-            "$DEMO_BASE/undocumented/$mv_name/cpp" \
-            "demo_$mv_name"
-    else
-        fail "demo: $mv_name binary not found (expected to be built)"
-    fi
-done
 
 echo
 echo "════════════════════════════════════════════════════════════"

@@ -56,6 +56,9 @@ SRC_DIR="/opt/src"
 DOLFIN_BUILD_DIR="/opt/build/dolfin"
 DOLFIN_SRC_DIR="$SRC_DIR/dolfin"
 
+# Make dolfin importable by Python tests
+export PYTHONPATH="$DOLFIN_BUILD_DIR/python:${PYTHONPATH:-}"
+
 section "dolfin C++ unit tests  –  geometry"
 
 UNITTEST_DIR="$DOLFIN_BUILD_DIR/test/unit/cpp"
@@ -95,9 +98,8 @@ fi
 
 section "dolfin Python unit tests  –  meshview"
 
-DOLFIN_PY_MESH_TEST="$DOLFIN_SRC_DIR/test/unit/python/mesh/test_meshview.py"
+DOLFIN_PY_MESH_TEST="$DOLFIN_SRC_DIR/python/test/unit/mesh/test_meshview.py"
 if [ -f "$DOLFIN_PY_MESH_TEST" ]; then
-    export PYTHONPATH="$DOLFIN_BUILD_DIR/python:${PYTHONPATH:-}"
     run_check "dolfin Python: test_meshview" \
         python3 -u -m pytest "$DOLFIN_PY_MESH_TEST" -v --tb=short
 else
