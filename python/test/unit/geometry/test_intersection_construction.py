@@ -241,7 +241,7 @@ def verify_segment_intersection(p0, p1, q0, q1):
     """Verify that segments p0-p1 and q0-q1 intersect and that each returned
         point lies geometrically on both segments (exact predicate check)."""
 
-     intersection = cpp.geometry.IntersectionConstruction.intersection_segment_segment_2d(p0, p1, q0, q1)
+    intersection = cpp.geometry.IntersectionConstruction.intersection_segment_segment_2d(p0, p1, q0, q1)
 
      # Must be non-empty
      if len(intersection) == 0:
