@@ -197,7 +197,9 @@ void solve(const std::shared_ptr<MultiMesh> multimesh)
   // Compute errors
   auto exact_solution = std::make_shared<ExactSolution>();
   const double L2error = compute_error<MultiMeshL2Norm::Functional>(V, uh, exact_solution);
+  dolfin_assert(std::isfinite(L2error));
   const double H10error = compute_error<MultiMeshH10Norm::Functional>(V, uh, exact_solution);
+  dolfin_assert(std::isfinite(H10error));
   std::cout << L2error << ' ' << H10error << std::endl;
 }
 
