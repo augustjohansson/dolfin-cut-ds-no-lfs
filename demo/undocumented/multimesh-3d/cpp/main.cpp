@@ -159,6 +159,7 @@ double compute_error(const std::shared_ptr<MultiMeshFunctionSpace> V,
   auto m = std::make_shared<Scalar>();
   assembler->assemble(*m, *M);
 
+  dolfin_assert(std::isfinite(m->get_scalar_value()));
   dolfin_assert(m->get_scalar_value() > 0.);
   return std::sqrt(m->get_scalar_value());
 }
