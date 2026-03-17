@@ -916,7 +916,7 @@ void HDF5File::write(const Function& u, const std::string name)
   std::transform(x_cell_dofs.begin(),
                  x_cell_dofs.end(),
                  x_cell_dofs.begin(),
-                 std::bind2nd(std::plus<std::size_t>(), offset));
+                 [offset](std::size_t x) { return x + offset; });
 
   const bool mpi_io = _mpi_comm.size() > 1 ? true : false;
 

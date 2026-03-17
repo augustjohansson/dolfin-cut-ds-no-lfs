@@ -64,8 +64,8 @@ RUN cd /opt/src/ffc-cut-ds/libs/ffc-factory && \
     python3 setup.py build_ext --inplace && \
     cp ffc_factory*.so /usr/local/lib/python3.10/dist-packages/
 
-# COPY . /work
-# RUN cd /work && bash docker/fetch-build-dolfin.sh
+COPY . /work
+RUN cd /work && bash docker/fetch-build-dolfin.sh
 
 WORKDIR /work
 CMD ["bash"]

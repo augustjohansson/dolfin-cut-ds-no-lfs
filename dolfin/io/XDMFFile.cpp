@@ -1312,7 +1312,7 @@ void XDMFFile::add_function(MPI_Comm mpi_comm, pugi::xml_node& xml_node,
   std::transform(x_cell_dofs.begin(),
                  x_cell_dofs.end(),
                  x_cell_dofs.begin(),
-                 std::bind2nd(std::plus<std::size_t>(), offset));
+                 [offset](std::size_t x) { return x + offset; });
 
   const std::int64_t num_cell_dofs_global
     = MPI::sum(mpi_comm, cell_dofs.size());

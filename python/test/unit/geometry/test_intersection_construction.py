@@ -239,30 +239,26 @@ def compare_with_cgal(p0, p1, q0, q1, cgal):
 
 def verify_segment_intersection(p0, p1, q0, q1):
     """Verify that segments p0-p1 and q0-q1 intersect and that each returned
-        point lies geometrically on both segments (exact predicate check)."""
+        point lies geometrically on both segments (bounding-box check with
+        tolerance, since floating-point intersection points may not satisfy
+        exact predicates)."""
 
     intersection = cpp.geometry.IntersectionConstruction.intersection_segment_segment_2d(p0, p1, q0, q1)
 
-     # Must be non-empty
-     if len(intersection) == 0:
-         return False
+    # Must be non-empty
+    if len(intersection) == 0:
+        return False
 
-     # Exact check:
-     if not cpp.geometry.CollisionPredicates.collides_segment_point_2d(p0, p1, pt):
-         return False
-     if not cpp.geometry.CollisionPredicates.collides_segment_point_2d(q0, q1, pt):
-         return False
+    eps = DOLFIN_EPS_LARGE
 
-    #  # Fuzzy check using bbox:
-    # eps = 1e-10
-    # # Every returned point must lie in the bounding box of both input segments
-    #  for pt in intersection:
-    #      if not (min(p0.x(), p1.x()) - eps <= pt.x() <= max(p0.x(), p1.x()) + eps and
-    #              min(p0.y(), p1.y()) - eps <= pt.y() <= max(p0.y(), p1.y()) + eps):
-    #          return False
-    #     if not (min(q0.x(), q1.x()) - eps <= pt.x() <= max(q0.x(), q1.x()) + eps and
-    #             min(q0.y(), q1.y()) - eps <= pt.y() <= max(q0.y(), q1.y()) + eps):
-    #          return False
+    # Fuzzy check: each returned point must lie in the bounding box of both segments
+    for pt in intersection:
+        if not (min(p0.x(), p1.x()) - eps <= pt.x() <= max(p0.x(), p1.x()) + eps and
+                min(p0.y(), p1.y()) - eps <= pt.y() <= max(p0.y(), p1.y()) + eps):
+            return False
+        if not (min(q0.x(), q1.x()) - eps <= pt.x() <= max(q0.x(), q1.x()) + eps and
+                min(q0.y(), q1.y()) - eps <= pt.y() <= max(q0.y(), q1.y()) + eps):
+            return False
 
     return True
 

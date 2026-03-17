@@ -1,0 +1,8 @@
+numpy
+pkgconfig
+pybind11
+mpi4py
+petsc4py
+fenics-ffc
+fenics-ufl-legacy
+fenics-dijitso

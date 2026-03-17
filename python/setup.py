@@ -7,7 +7,7 @@ import multiprocessing
 
 from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
-from distutils.version import LooseVersion
+from packaging.version import Version
 
 if sys.version_info < (3, 5):
     print("Python 3.5 or higher required, please upgrade.")
@@ -41,8 +41,8 @@ class CMakeBuild(build_ext):
                                ", ".join(e.name for e in self.extensions))
 
         if platform.system() == "Windows":
-            cmake_version = LooseVersion(re.search(r'version\s*([\d.]+)', out.decode()).group(1))
-            if cmake_version < '3.1.0':
+            cmake_version = Version(re.search(r'version\s*([\d.]+)', out.decode()).group(1))
+            if cmake_version < Version('3.1.0'):
                 raise RuntimeError("CMake >= 3.1.0 is required on Windows")
 
         for ext in self.extensions:
