@@ -30,6 +30,8 @@
 #include "MultiMeshL2Norm.h"
 #include "MultiMeshH10Norm.h"
 
+#include <cassert>
+
 using namespace dolfin;
 
 class Arguments
@@ -206,6 +208,12 @@ void solve(const std::shared_ptr<MultiMesh> multimesh)
 
 int main(int argc, char* argv[])
 {
+  double a = 1.0 / 0.0;
+  std::cout << std::isfinite(a) << std::endl;
+  dolfin_assert(std::isfinite(a));
+  assert(std::isfinite(a));
+
+
   Arguments args;
   args.parse(argc, argv);
 
