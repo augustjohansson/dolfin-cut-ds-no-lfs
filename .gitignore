@@ -136,3 +136,5 @@ install_manifest.txt
 cmake.local
 
 build/
+
+python/fenics_dolfin.egg_info/
