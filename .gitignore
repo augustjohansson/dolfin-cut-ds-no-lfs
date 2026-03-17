@@ -138,3 +138,4 @@ cmake.local
 build/
 
 python/fenics_dolfin.egg_info/
+python/fenics_dolfin.egg-info/
