@@ -7,6 +7,9 @@ ENV GIT_LFS_SKIP_SMUDGE=1
 ENV PYTHONPATH=/usr/lib/freecad-python3/lib
 ENV CCACHE_DIR=/root/.cache/ccache
 ENV CCACHE_MAXSIZE=10G
+ENV DOLFIN_DOCKERFILE=/work/docker/Dockerfile
+ENV DOLFIN_SRC_DIR=/work
+ENV DOLFIN_BUILD_DIR=/work/build
 
 WORKDIR /opt/src
 
@@ -63,12 +66,6 @@ RUN cd /opt/src/ffc-cut-ds/libs/ffc-factory && \
 
 COPY docker/fetch-build-dolfin.sh /usr/local/bin/fetch-build-dolfin
 RUN chmod +x /usr/local/bin/fetch-build-dolfin
-
-ARG DOLFIN_USE_CGAL=ON
-ARG DOLFIN_CACHE_BUST=0
-RUN --mount=type=cache,target=/root/.cache/ccache \
-    --mount=type=cache,target=/root/.cache/pip \
-    echo "${DOLFIN_CACHE_BUST}" >/dev/null && fetch-build-dolfin
 
 WORKDIR /work
 CMD ["bash"]
