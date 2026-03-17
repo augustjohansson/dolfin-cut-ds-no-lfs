@@ -68,8 +68,8 @@ run_demo() {
 }
 
 SRC_DIR="/opt/src"
-DOLFIN_BUILD_DIR="/opt/build/dolfin"
-DOLFIN_SRC_DIR="$SRC_DIR/dolfin"
+DOLFIN_BUILD_DIR="/work/build"
+DOLFIN_SRC_DIR="/work"
 
 # Make dolfin importable by Python tests
 export PYTHONPATH="$DOLFIN_BUILD_DIR/python:${PYTHONPATH:-}"
