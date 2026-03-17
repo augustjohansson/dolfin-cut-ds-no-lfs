@@ -43,6 +43,7 @@ set(DOLFIN_SOURCES)
 
 foreach(DIR ${DOLFIN_DIRS})
   # Each subdirectory defines HEADERS and SOURCES
+  message("Processing directory ${DIR}")
   add_subdirectory(${DIR})
   set(HEADERS_FULL_PATH)
   foreach(HEADER_FILE ${HEADERS})
